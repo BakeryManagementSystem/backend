@@ -22,6 +22,21 @@ This is the server-side application of the Bakery Management System, built with 
 ### Team Contributions Dashboard
 [![Team WakaTime Stats](https://github-readme-stats.vercel.app/api/wakatime?username=your-team-username&layout=compact&theme=radical)](https://wakatime.com/@your-team-username)
 
+
+### Design System
+- **Colors**: Brand color palette
+  - **Primary**: `#6639a6` (Deep Purple)
+  - **Secondary**: `#7f4fc3` (Medium Purple) 
+  - **Accent**: `#9b75d0` (Light Purple)
+  - **Dark**: `#4f2c80` (Dark Purple)
+  - **Light**: `#ffffff` (White)
+  - **Neutral**: `#e6e6e6` (Light Gray)
+- **Typography**: Clean, readable fonts optimized for business use
+- **Layout**: Responsive design supporting desktop, tablet, and mobile
+- **Components**: Consistent component library following design system
+
+
+  
 ## 🎯 Core Features
 
 ### 🔐 Authentication & Authorization
