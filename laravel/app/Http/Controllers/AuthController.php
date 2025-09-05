@@ -15,7 +15,7 @@ class AuthController extends Controller
             'name'      => ['required','string','max:255'],
             'email'     => ['required','email','max:255','unique:users,email'],
             'password'  => ['required','string','min:8'],
-            'user_type' => ['required','string','in:customer,admin,staff'] // adjust as needed
+            'user_type' => ['required','string','in:buyer,seller,owner'] // adjust as needed
         ]);
 
         $user = new User;
