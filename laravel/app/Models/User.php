@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
@@ -32,4 +31,8 @@ class User extends Authenticatable
         // OR keep it and send plaintext here (not both). With your current controller, remove it:
         // 'password' => 'hashed',
     ];
+
+    public function profile() { return $this->hasOne(UserProfile::class); }
+    public function shopProfile() { return $this->hasOne(ShopProfile::class, 'owner_id'); }
+
 }
