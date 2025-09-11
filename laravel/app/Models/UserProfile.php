@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+use Illuminate\Support\Facades\Storage;
+
 class UserProfile extends Model
 {
     protected $fillable = [
@@ -15,10 +17,16 @@ class UserProfile extends Model
         return $this->belongsTo(User::class);
     }
 
+
+     public function getPhotoUrlAttribute()
+        {
+            return $this->photo_path
+                ? Storage::disk('public')->url($this->photo_path)
+                : null;
+        }
+
     // Optional: convenient accessor for public URL
     protected $appends = ['photo_url'];
-    public function getPhotoUrlAttribute()
-    {
-        return $this->photo_path ? url(\Illuminate\Support\Facades\Storage::url($this->photo_path)) : null;
-    }
+
+
 }

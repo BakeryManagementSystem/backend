@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\OrderItem;
 use App\Models\IngredientBatch;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class ReportController extends Controller
 {
@@ -146,4 +147,93 @@ class ReportController extends Controller
             'data'   => $out,
         ]);
     }
-}
+
+
+
+    // GET /api/owner/dashboard
+
+       public function dashboard(Request $request)
+       {
+           $user = $request->user();
+           abort_unless($user, 401, 'Unauthenticated.');
+
+           // validate & normalize date range
+           $request->validate([
+               'from' => ['nullable', 'date'],
+               'to'   => ['nullable', 'date'],
+           ]);
+
+           $from = $request->filled('from')
+               ? Carbon::parse($request->query('from'))->startOfDay()
+               : now()->subDays(30)->startOfDay();
+
+           $to = $request->filled('to')
+               ? Carbon::parse($request->query('to'))->endOfDay()
+               : now()->endOfDay();
+
+           // ------- Revenue (your products only) -------
+           // Join orders -> order_items -> products and filter by products.owner_id
+           $salesAgg = DB::table('order_items as oi')
+               ->join('orders as o', 'oi.order_id', '=', 'o.id')
+               ->join('products as p', 'oi.product_id', '=', 'p.id')
+               ->where('p.owner_id', $user->id)
+               ->whereBetween('o.created_at', [$from, $to])
+               ->selectRaw('
+                   COALESCE(SUM(oi.line_total), 0)      as revenue,
+                   COALESCE(SUM(oi.quantity), 0)        as units_sold,
+                   COUNT(DISTINCT oi.product_id)        as distinct_products_sold
+               ')
+               ->first();
+
+           $revenue                = (float) ($salesAgg->revenue ?? 0);
+           $unitsSold              = (int)   ($salesAgg->units_sold ?? 0);
+           $distinctProductsSold   = (int)   ($salesAgg->distinct_products_sold ?? 0);
+
+           // ------- Top products by qty -------
+           $topProducts = DB::table('order_items as oi')
+               ->join('orders as o', 'oi.order_id', '=', 'o.id')
+               ->join('products as p', 'oi.product_id', '=', 'p.id')
+               ->where('p.owner_id', $user->id)
+               ->whereBetween('o.created_at', [$from, $to])
+               ->groupBy('oi.product_id', 'p.name')
+               ->orderByDesc(DB::raw('SUM(oi.quantity)'))
+               ->limit(5)
+               ->get([
+                   'oi.product_id',
+                   'p.name',
+                   DB::raw('SUM(oi.quantity) as qty'),
+                   DB::raw('SUM(oi.line_total) as revenue'),
+               ]);
+
+           // ------- Ingredient spend (uses batches.total_cost) -------
+           // If you store period in period_from/period_to, uncomment the period-based filter and comment created_at filter.
+           $ingredientSpend = DB::table('ingredient_batches as b')
+               ->where('b.owner_id', $user->id)
+               ->whereBetween('b.created_at', [$from, $to])   // simple: use created_at window
+               // ->where(function ($q) use ($from, $to) {     // alternative: use period window
+               //     $q->whereBetween('b.period_from', [$from, $to])
+               //       ->orWhereBetween('b.period_to', [$from, $to]);
+               // })
+               ->sum('b.total_cost');
+
+           $profit = $revenue - (float) $ingredientSpend;
+
+           return response()->json([
+               'range' => [
+                   'from' => $from->toDateTimeString(),
+                   'to'   => $to->toDateTimeString(),
+               ],
+               'kpis' => [
+                   'revenue'                 => round($revenue, 2),
+                   'spend'                   => round((float) $ingredientSpend, 2),
+                   'profit'                  => round($profit, 2),
+                   'units_sold'              => $unitsSold,
+                   'distinct_products_sold'  => $distinctProductsSold,
+               ],
+               'top_products' => $topProducts,
+           ]);
+
+       }
+   }
+
+

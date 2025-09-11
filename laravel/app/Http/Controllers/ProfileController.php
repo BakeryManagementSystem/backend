@@ -17,7 +17,7 @@ class ProfileController extends Controller
             ['user_id' => $u->id],
             ['name' => $u->name, 'email' => $u->email]
         );
-        return response()->json($profile);
+        return response()->json($profile->fresh());
     }
 
     // POST /api/me/profile (update)
@@ -25,9 +25,11 @@ class ProfileController extends Controller
     {
         $u = $request->user();
         $data = $request->validate([
-            'address' => ['nullable','string','max:255'],
-            'facebook_url' => ['nullable','string','max:255'],
-            'photo' => ['nullable','image','mimes:jpeg,png,jpg,webp,gif','max:5120'],
+             'name'         => ['nullable','string','max:255'],   // allow changing user name (optional)
+                        'email'        => ['nullable','email','max:255'],    // allow changing user email (optional)
+                        'address'      => ['nullable','string','max:255'],
+                        'facebook_url' => ['nullable','string','max:255'],
+                        'photo'        => ['nullable','image','mimes:jpeg,png,jpg,webp,gif','max:5120'],
         ]);
 
         $profile = UserProfile::firstOrCreate(
@@ -35,30 +37,36 @@ class ProfileController extends Controller
             ['name' => $u->name, 'email' => $u->email]
         );
 
+
+        $dirtyUser = false;
+                if (!empty($data['name']) && $data['name'] !== $u->name) {
+                    $u->name = $data['name'];
+                    $dirtyUser = true;
+                }
+                if (!empty($data['email']) && $data['email'] !== $u->email) {
+                    $u->email = $data['email'];
+                    $dirtyUser = true;
+                }
+                if ($dirtyUser) {
+                    $u->save();
+                }
+
+
         if ($request->hasFile('photo')) {
             $path = $request->file('photo')->store('profiles', 'public');
             $profile->photo_path = $path;
         }
-        if (isset($data['address'])) $profile->address = $data['address'];
-        if (isset($data['facebook_url'])) $profile->facebook_url = $data['facebook_url'];
+        if (array_key_exists('address', $data)) $profile->address = $data['address'];
+        if (array_key_exists('facebook_url', $data)) $profile->facebook_url = $data['facebook_url'];
         // always mirror name/email from user to keep consistent
         $profile->name = $u->name;
         $profile->email = $u->email;
 
         $profile->save();
-        return response()->json(['message' => 'Profile updated', 'profile' => $profile]);
+        return response()->json(['message' => 'Profile updated', 'profile' => $profile->fresh()]);
     }
 
     // GET /api/owner/shop (for owners)
-    public function myShop(Request $request)
-    {
-        $u = $request->user();
-        $shop = ShopProfile::firstOrCreate(
-            ['owner_id' => $u->id],
-            ['shop_name' => $u->name . "'s Shop"]
-        );
-        return response()->json($shop);
-    }
 
     // POST /api/owner/shop (update)
     public function updateShop(Request $request)
@@ -87,4 +95,44 @@ class ProfileController extends Controller
         $shop->save();
         return response()->json(['message' => 'Shop profile updated', 'shop' => $shop]);
     }
+
+
+    // GET /api/owner/shop  (requires Sanctum token)
+   public function myShop(Request $request)
+   {
+       $u = $request->user();
+       $shop = ShopProfile::firstOrCreate(
+           ['owner_id' => $u->id],
+           ['shop_name' => $u->name . "'s Shop"]
+       );
+
+       return response()->json([
+           'shop'  => $shop,
+           'owner' => [
+               'id'    => $u->id,
+               'name'  => $u->name,
+               'email' => $u->email,
+           ],
+       ]);
+   }
+
+
+    // GET /api/public/shop/{owner}  (public, no auth required)
+
+    public function publicShop(\App\Models\User $owner)
+    {
+        $shop = \App\Models\ShopProfile::firstWhere('owner_id', $owner->id);
+
+        return response()->json([
+            'shop'  => $shop,
+            'owner' => [
+                'id'    => $owner->id,
+                'name'  => $owner->name,
+                'email' => $owner->email,
+            ],
+        ]);
+    }
+
+
+
 }

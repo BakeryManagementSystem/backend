@@ -18,6 +18,7 @@ class ShopProfile extends Model
     protected $appends = ['logo_url'];
     public function getLogoUrlAttribute()
     {
-        return $this->logo_path ? url(\Illuminate\Support\Facades\Storage::url($this->logo_path)) : null;
+        return $this->logo_path ? url(\Storage::url($this->logo_path)) : null;
+
     }
 }
