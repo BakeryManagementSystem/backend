@@ -58,6 +58,8 @@ class OrderController extends Controller
                 ]);
             }
 
+
+
             CartItem::where('user_id', $buyerId)->delete();
 
             return response()->json(['message' => 'Order placed', 'order' => $order->load('items')], 201);
@@ -93,4 +95,5 @@ class OrderController extends Controller
             'count'     => $rows->count(),
         ]);
     }
+
 }
