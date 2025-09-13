@@ -43,6 +43,10 @@ Route::middleware('auth:sanctum')->group(function ()
     Route::get('/orders',             [OrderController::class, 'index']);
     Route::patch('/orders/{order}',   [OrderController::class, 'updateStatus']);
 
+    Route::post('/buy-now', [OrderController::class, 'buyNow']);
+    Route::get('/owner/inbox', [OrderController::class, 'getOwnerInbox']);
+    Route::get('/owner/orders', [OrderController::class, 'getOwnerOrders']);
+    Route::get('/user-profile', [OrderController::class, 'getUserProfile']);
 
     // Profiles
     Route::get('/me/profile', [ProfileController::class, 'me']);
@@ -78,6 +82,11 @@ Route::middleware('auth:sanctum')->group(function ()
 
     // Logout
     Route::post('/logout',            [AuthController::class, 'logout']);
+});
+
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::put('/owner/orders/{orderId}/status', [OrderController::class, 'updateOrderStatus']);
 });
 
 // routes/api.php
