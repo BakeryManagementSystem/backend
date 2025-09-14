@@ -89,6 +89,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/owner/orders/{orderId}/status', [OrderController::class, 'updateOrderStatus']);
 });
 
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/buyer/notifications', [OrderController::class, 'getBuyerNotifications']);
+});
+
 // routes/api.php
 Route::get('/shops/{owner}', [\App\Http\Controllers\ProfileController::class, 'publicShop']); // public
 
