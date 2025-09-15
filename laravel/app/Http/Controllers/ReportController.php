@@ -156,187 +156,84 @@ class ReportController extends Controller
        {
            $user = $request->user();
            abort_unless($user, 401, 'Unauthenticated.');
-           $ownerId = $user->id;
 
-           // Validate dates coming from the UI
+           // validate & normalize date range
            $request->validate([
                'from' => ['nullable', 'date'],
                'to'   => ['nullable', 'date'],
            ]);
 
-           // Normalize to full-day window
            $from = $request->filled('from')
                ? Carbon::parse($request->query('from'))->startOfDay()
-               : now()->startOfMonth()->startOfDay();
+               : now()->subDays(30)->startOfDay();
 
            $to = $request->filled('to')
                ? Carbon::parse($request->query('to'))->endOfDay()
                : now()->endOfDay();
 
-           // ---------------------------
-           // SALES (owner products only)
-           // ---------------------------
-           // order_items: product_id, quantity, line_total
-           // orders: created_at
-           // products: owner_id, name, category
+           // ------- Revenue (your products only) -------
+           // Join orders -> order_items -> products and filter by products.owner_id
            $salesAgg = DB::table('order_items as oi')
                ->join('orders as o', 'oi.order_id', '=', 'o.id')
                ->join('products as p', 'oi.product_id', '=', 'p.id')
-               ->where('p.owner_id', $ownerId)
+               ->where('p.owner_id', $user->id)
                ->whereBetween('o.created_at', [$from, $to])
                ->selectRaw('
-                   COALESCE(SUM(oi.line_total), 0) as revenue,
-                   COALESCE(COUNT(DISTINCT o.id), 0) as orders_count
+                   COALESCE(SUM(oi.line_total), 0)      as revenue,
+                   COALESCE(SUM(oi.quantity), 0)        as units_sold,
+                   COUNT(DISTINCT oi.product_id)        as distinct_products_sold
                ')
                ->first();
 
-           $sales_amount = (float)($salesAgg->revenue ?? 0);
-           $sales_count  = (int)($salesAgg->orders_count ?? 0);
+           $revenue                = (float) ($salesAgg->revenue ?? 0);
+           $unitsSold              = (int)   ($salesAgg->units_sold ?? 0);
+           $distinctProductsSold   = (int)   ($salesAgg->distinct_products_sold ?? 0);
 
-           // Breakdown by product
-           $product_breakdown = DB::table('order_items as oi')
+           // ------- Top products by qty -------
+           $topProducts = DB::table('order_items as oi')
                ->join('orders as o', 'oi.order_id', '=', 'o.id')
                ->join('products as p', 'oi.product_id', '=', 'p.id')
-               ->where('p.owner_id', $ownerId)
+               ->where('p.owner_id', $user->id)
                ->whereBetween('o.created_at', [$from, $to])
-               ->groupBy('p.name')
-               ->selectRaw('
-                   p.name as product,
-                   COALESCE(SUM(oi.quantity), 0) as qty,
-                   COALESCE(SUM(oi.line_total), 0) as revenue
-               ')
-               ->orderByDesc('qty')
-               ->limit(10)
-               ->get();
+               ->groupBy('oi.product_id', 'p.name')
+               ->orderByDesc(DB::raw('SUM(oi.quantity)'))
+               ->limit(5)
+               ->get([
+                   'oi.product_id',
+                   'p.name',
+                   DB::raw('SUM(oi.quantity) as qty'),
+                   DB::raw('SUM(oi.line_total) as revenue'),
+               ]);
 
-           // Breakdown by category
-           $category_breakdown = DB::table('order_items as oi')
-               ->join('orders as o', 'oi.order_id', '=', 'o.id')
-               ->join('products as p', 'oi.product_id', '=', 'p.id')
-               ->where('p.owner_id', $ownerId)
-               ->whereBetween('o.created_at', [$from, $to])
-               ->groupBy('p.category')
-               ->selectRaw('
-                   p.category as category,
-                   COALESCE(SUM(oi.quantity), 0) as qty,
-                   COALESCE(SUM(oi.line_total), 0) as revenue
-               ')
-               ->orderByDesc('revenue')
-               ->get();
+           // ------- Ingredient spend (uses batches.total_cost) -------
+           // If you store period in period_from/period_to, uncomment the period-based filter and comment created_at filter.
+           $ingredientSpend = DB::table('ingredient_batches as b')
+               ->where('b.owner_id', $user->id)
+               ->whereBetween('b.created_at', [$from, $to])   // simple: use created_at window
+               // ->where(function ($q) use ($from, $to) {     // alternative: use period window
+               //     $q->whereBetween('b.period_from', [$from, $to])
+               //       ->orWhereBetween('b.period_to', [$from, $to]);
+               // })
+               ->sum('b.total_cost');
 
-           // --------------------------------------------
-           // INGREDIENTS (usage & cost from batch items)
-           // --------------------------------------------
-           // ingredient_batches: id, owner_id, period_start, period_end, created_at
-           // ingredient_batch_items: batch_id, ingredient_id, quantity_used, unit_price_snapshot
-           // ingredients: id, name, unit
-           //
-           // Include a batch if its [period_start, period_end] overlaps the selected window.
-           // If period_* are NULL (old rows), fall back to created_at in the same window.
-           $ingredient_usage = DB::table('ingredient_batch_items as ibi')
-               ->join('ingredient_batches as b', 'ibi.batch_id', '=', 'b.id')
-               ->leftJoin('ingredients as ing', 'ibi.ingredient_id', '=', 'ing.id')
-               ->where('b.owner_id', $ownerId)
-               ->where(function ($q) use ($from, $to) {
-                   $q->where(function ($q1) use ($from, $to) {
-                       // Overlap on period range
-                       $q1->whereNotNull('b.period_start')
-                           ->whereNotNull('b.period_end')
-                           ->where(function ($qq) use ($from, $to) {
-                               $qq->whereBetween('b.period_start', [$from, $to])
-                                  ->orWhereBetween('b.period_end', [$from, $to])
-                                  ->orWhere(function ($qqq) use ($from, $to) {
-                                      $qqq->where('b.period_start', '<=', $from)
-                                          ->where('b.period_end', '>=', $to);
-                                  });
-                           });
-                   })
-                   ->orWhere(function ($q2) use ($from, $to) {
-                       // Fallback to created_at window for legacy rows
-                       $q2->whereNull('b.period_start')
-                          ->orWhereNull('b.period_end')
-                          ->whereBetween('b.created_at', [$from, $to]);
-                   });
-               })
-               ->groupBy('ing.name', 'ing.unit')
-               ->selectRaw('
-                   COALESCE(ing.name, "Unknown") as ingredient,
-                   COALESCE(ing.unit, "") as unit,
-                   COALESCE(SUM(ibi.quantity_used), 0) as quantity,
-                   COALESCE(SUM(ibi.quantity_used * ibi.unit_price_snapshot), 0) as cost
-               ')
-               ->orderByDesc('cost')
-               ->get();
-
-           // Total ingredient cost (from items). If 0, try summing batches.total_cost if you’ve added that column.
-           $ingredient_cost = (float) DB::table('ingredient_batch_items as ibi')
-               ->join('ingredient_batches as b', 'ibi.batch_id', '=', 'b.id')
-               ->where('b.owner_id', $ownerId)
-               ->where(function ($q) use ($from, $to) {
-                   $q->where(function ($q1) use ($from, $to) {
-                       $q1->whereNotNull('b.period_start')
-                           ->whereNotNull('b.period_end')
-                           ->where(function ($qq) use ($from, $to) {
-                               $qq->whereBetween('b.period_start', [$from, $to])
-                                  ->orWhereBetween('b.period_end', [$from, $to])
-                                  ->orWhere(function ($qqq) use ($from, $to) {
-                                      $qqq->where('b.period_start', '<=', $from)
-                                          ->where('b.period_end', '>=', $to);
-                                  });
-                           });
-                   })
-                   ->orWhere(function ($q2) use ($from, $to) {
-                       $q2->whereNull('b.period_start')
-                          ->orWhereNull('b.period_end')
-                          ->whereBetween('b.created_at', [$from, $to]);
-                   });
-               })
-               ->selectRaw('COALESCE(SUM(ibi.quantity_used * ibi.unit_price_snapshot), 0) as spend')
-               ->value('spend');
-
-           // Optional fallback: if you created `ingredient_batches.total_cost` and keep it updated
-           if ($ingredient_cost <= 0) {
-               $ingredient_cost = (float) DB::table('ingredient_batches as b')
-                   ->where('b.owner_id', $ownerId)
-                   ->where(function ($q) use ($from, $to) {
-                       $q->where(function ($q1) use ($from, $to) {
-                           $q1->whereNotNull('b.period_start')
-                               ->whereNotNull('b.period_end')
-                               ->where(function ($qq) use ($from, $to) {
-                                   $qq->whereBetween('b.period_start', [$from, $to])
-                                      ->orWhereBetween('b.period_end', [$from, $to])
-                                      ->orWhere(function ($qqq) use ($from, $to) {
-                                          $qqq->where('b.period_start', '<=', $from)
-                                              ->where('b.period_end', '>=', $to);
-                                      });
-                               });
-                       })
-                       ->orWhere(function ($q2) use ($from, $to) {
-                           $q2->whereNull('b.period_start')
-                              ->orWhereNull('b.period_end')
-                              ->whereBetween('b.created_at', [$from, $to]);
-                       });
-                   })
-                   ->sum('b.total_cost');
-           }
-
-           $profit = $sales_amount - $ingredient_cost;
+           $profit = $revenue - (float) $ingredientSpend;
 
            return response()->json([
-               // keep these keys because your React expects them
-               'sales_count'         => $sales_count,
-               'sales_amount'        => round($sales_amount, 2),
-               'product_breakdown'   => $product_breakdown,
-               'category_breakdown'  => $category_breakdown,
-               'ingredient_usage'    => $ingredient_usage,
-               'ingredient_cost'     => round($ingredient_cost, 2),
-               'profit'              => round($profit, 2),
-               // echo back the normalized range
-               'from' => $from->toDateString(),
-               'to'   => $to->toDateString(),
+               'range' => [
+                   'from' => $from->toDateTimeString(),
+                   'to'   => $to->toDateTimeString(),
+               ],
+               'kpis' => [
+                   'revenue'                 => round($revenue, 2),
+                   'spend'                   => round((float) $ingredientSpend, 2),
+                   'profit'                  => round($profit, 2),
+                   'units_sold'              => $unitsSold,
+                   'distinct_products_sold'  => $distinctProductsSold,
+               ],
+               'top_products' => $topProducts,
            ]);
-       }
 
+       }
    }
 
 

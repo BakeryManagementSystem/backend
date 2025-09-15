@@ -18,6 +18,9 @@ class User extends Authenticatable
         'email',
         'password',
         'user_type', // add this since you use it
+        'phone',
+        'date_of_birth',
+        'avatar'
     ];
 
     protected $hidden = [
@@ -27,12 +30,30 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        // If you're already doing Hash::make() in the controller, you can remove the 'password' => 'hashed' cast
-        // OR keep it and send plaintext here (not both). With your current controller, remove it:
-        // 'password' => 'hashed',
+        'date_of_birth' => 'date'
     ];
 
     public function profile() { return $this->hasOne(UserProfile::class); }
     public function shopProfile() { return $this->hasOne(ShopProfile::class, 'owner_id'); }
 
+    // Relationships
+    public function addresses()
+    {
+        return $this->hasMany(UserAddress::class);
+    }
+
+    public function wishlistItems()
+    {
+        return $this->hasMany(Wishlist::class);
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class, 'buyer_id');
+    }
+
+    public function products()
+    {
+        return $this->hasMany(Product::class, 'owner_id');
+    }
 }

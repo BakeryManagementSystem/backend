@@ -16,8 +16,8 @@ class ProductController extends Controller
             $category = trim((string) $request->input('category', ''));
 
             $query = Product::query()
-                // select only what you need; make sure these columns exist
-                ->select(['id','owner_id','name','description','price','category','image_path'])
+                // Select all available columns, handling both basic and enhanced database structures
+                ->select(['id','owner_id','name','description','price','discount_price','category','category_id','stock_quantity','sku','weight','dimensions','ingredients','allergens','status','is_featured','meta_title','meta_description','image_path','images'])
                 // filter
                 ->when($q !== '', function($w) use ($q) {
                     $w->where(function($x) use ($q) {
@@ -26,17 +26,33 @@ class ProductController extends Controller
                     });
                 })
                 ->when($category !== '', fn($w) => $w->where('category', $category))
-                // DO NOT order by created_at if your table doesn’t have timestamps
+                // Order by ID since timestamps are disabled
                 ->orderBy('id','desc');
 
-            // You can return simple list or paginator. Let’s use paginator:
+            // You can return simple list or paginator. Let's use paginator:
             $paginator = $query->paginate($perPage);
 
-            // Map image_url from image_path if you don’t have an accessor
+            // Map image_url from image_path and handle missing fields gracefully
             $paginator->getCollection()->transform(function ($p) {
                 $p->image_url = $p->image_path
                     ? (url('/storage/'.$p->image_path))
                     : null;
+
+                // Add image_urls for multiple images
+                $p->image_urls = $p->images && is_array($p->images) ?
+                    array_map(fn($path) => url('/storage/' . $path), $p->images) : [];
+
+                // Ensure price fields are properly cast to numbers
+                $p->price = (float) $p->price;
+                $p->discount_price = $p->discount_price ? (float) $p->discount_price : null;
+
+                // Add default values for fields that might not exist
+                $p->status = $p->status ?? 'active';
+                $p->stock_quantity = (int) ($p->stock_quantity ?? 10);
+                $p->is_featured = (bool) ($p->is_featured ?? false);
+                $p->ingredients = $p->ingredients ?? [];
+                $p->allergens = $p->allergens ?? [];
+
                 return $p;
             });
 
@@ -55,37 +71,99 @@ class ProductController extends Controller
     // Owner: upload/create product (supports image)
     public function store(Request $request)
     {
-         $user = $request->user();
+        $user = $request->user();
 
-                if (!$user) {
-                       return response()->json(['message' => 'Unauthenticated'], 401);
-                   }
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
 
-                   if (!in_array(strtolower($user->user_type), ['owner','seller'])) {
-                       return response()->json(['message' => 'Only shop owners can create products'], 403);
-                   }
+        if (!in_array(strtolower($user->user_type), ['owner','seller'])) {
+            return response()->json(['message' => 'Only shop owners can create products'], 403);
+        }
 
+        // Validate all frontend fields
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'price'       => ['required', 'numeric', 'min:0'],
-            'category'    => ['nullable', 'string', 'max:120'],
-            'image'       => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'], // 5MB
-            'owner_id'    => ['nullable', 'integer'],
+            'name'            => ['required', 'string', 'max:255'],
+            'description'     => ['required', 'string'],
+            'price'           => ['required', 'numeric', 'min:0'],
+            'discount_price'  => ['nullable', 'numeric', 'min:0'],
+            'category_id'     => ['required', 'integer'],
+            'stock_quantity'  => ['nullable', 'integer', 'min:0'],
+            'sku'             => ['nullable', 'string', 'max:100'],
+            'weight'          => ['nullable', 'numeric', 'min:0'],
+            'dimensions'      => ['nullable', 'string', 'max:255'],
+            'ingredients'     => ['nullable', 'string'], // JSON string from frontend
+            'allergens'       => ['nullable', 'string'], // JSON string from frontend
+            'status'          => ['nullable', 'in:active,draft,out_of_stock'],
+            'is_featured'     => ['nullable', 'in:0,1,true,false'], // Accept string boolean values
+            'meta_title'      => ['nullable', 'string', 'max:255'],
+            'meta_description'=> ['nullable', 'string', 'max:500'],
+            'images'          => ['nullable', 'array', 'max:5'],
+            'images.*'        => ['image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
         ]);
 
-                $path = $request->hasFile('image')
-                       ? $request->file('image')->store('products','public')
-                       : null;
+        // Handle multiple image uploads
+        $imagePaths = [];
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $path = $image->store('products', 'public');
+                $imagePaths[] = $path;
+            }
+        }
 
+        // Parse JSON strings for ingredients and allergens
+        $ingredients = [];
+        $allergens = [];
+
+        if (!empty($data['ingredients'])) {
+            $decoded = json_decode($data['ingredients'], true);
+            if (is_array($decoded)) {
+                $ingredients = $decoded;
+            }
+        }
+
+        if (!empty($data['allergens'])) {
+            $decoded = json_decode($data['allergens'], true);
+            if (is_array($decoded)) {
+                $allergens = $decoded;
+            }
+        }
+
+        // Map category_id to category name
+        $categoryMap = [
+            1 => 'Bread & Rolls',
+            2 => 'Pastries',
+            3 => 'Cakes',
+            4 => 'Cookies',
+            5 => 'Muffins & Cupcakes',
+            6 => 'Specialty & Dietary'
+        ];
+
+        // Create product with all enhanced fields
         $product = Product::create([
-            'owner_id'    => $user->id,
-            'name'        => $data['name'],
-            'description' => $data['description'] ?? null,
-            'price'       => $data['price'],
-            'category'    => $data['category'] ?? null,
-            'image_path'  => $path,
+            'owner_id'        => $user->id,
+            'name'            => $data['name'],
+            'description'     => $data['description'],
+            'price'           => $data['price'],
+            'discount_price'  => $data['discount_price'] ?? null,
+            'category'        => $categoryMap[$data['category_id']] ?? 'Other',
+            'category_id'     => $data['category_id'],
+            'stock_quantity'  => $data['stock_quantity'] ?? 0,
+            'sku'             => $data['sku'] ?? null,
+            'weight'          => $data['weight'] ?? null,
+            'dimensions'      => $data['dimensions'] ?? null,
+            'ingredients'     => $ingredients,
+            'allergens'       => $allergens,
+            'status'          => $data['status'] ?? 'active',
+            'is_featured'     => $data['is_featured'] ?? false,
+            'meta_title'      => $data['meta_title'] ?? null,
+            'meta_description'=> $data['meta_description'] ?? null,
+            'image_path'      => !empty($imagePaths) ? $imagePaths[0] : null,
+            'images'          => $imagePaths,
         ]);
+
+        // Refresh the model to get the properly casted attributes
+        $product->refresh();
 
         return response()->json([
             'message' => 'Product created successfully',

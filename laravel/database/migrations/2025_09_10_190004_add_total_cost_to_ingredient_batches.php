@@ -6,23 +6,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::table('ingredient_batches', function (Blueprint $table) {
-            $table->foreign(['owner_id'], 'ib_owner_fk')->references(['id'])->on('users')->onUpdate('no action')->onDelete('cascade');
+            $table->decimal('total_cost', 12, 2)->default(0)->after('notes');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('ingredient_batches', function (Blueprint $table) {
-            $table->dropForeign('ib_owner_fk');
+            $table->dropColumn('total_cost');
         });
     }
 };
