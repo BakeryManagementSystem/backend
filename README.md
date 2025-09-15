@@ -1,10 +1,10 @@
-# CrumbCart Backend
+# 🍞 Bakery Management System - Backend API
 
-A robust Laravel-based REST API backend for CrumbCart, providing secure data management, business logic, and AI-powered features for food marketplace operations.
+A robust Laravel-based REST API backend for the Bakery Management System, providing secure data management, business logic, and AI-powered features for bakery operations.
 
 ## 📌 Project Overview
 
-This is the server-side application of CrumbCart, built with Laravel and MySQL. It provides a comprehensive REST API for managing products, inventory, orders, customers, expenses, and generating business analytics.
+This is the server-side application of the Bakery Management System, built with Laravel and MySQL. It provides a comprehensive REST API for managing products, inventory, orders, customers, expenses, and generating business analytics.
 
 ## 👥 Team Members
 
@@ -95,8 +95,8 @@ This is the server-side application of CrumbCart, built with Laravel and MySQL. 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/crumbcart-backend.git
-   cd crumbcart-backend
+   git clone https://github.com/your-username/bakery-backend.git
+   cd bakery-backend
    ```
 
 2. **Install PHP dependencies**
@@ -112,7 +112,7 @@ This is the server-side application of CrumbCart, built with Laravel and MySQL. 
 
 4. **Configure Environment Variables**
    ```env
-   APP_NAME="CrumbCart API"
+   APP_NAME="Bakery Management System API"
    APP_ENV=local
    APP_DEBUG=true
    APP_URL=http://localhost:8000
