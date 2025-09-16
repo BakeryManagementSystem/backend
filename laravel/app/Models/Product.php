@@ -11,9 +11,16 @@ class Product extends Model
     use HasFactory;
     protected $table = 'products';
     protected $fillable = [
-        'owner_id', 'name', 'description', 'price', 'category', 'image_path'
+        'owner_id',
+        'name',
+        'description',
+         'price',
+         'category',
+         'image_path'
     ];
-
+    protected $casts = [
+            'price' => 'float',
+        ];
     protected $appends = ['image_url'];
 
     public function getImageUrlAttribute(): ?string

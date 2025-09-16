@@ -85,9 +85,9 @@ Route::middleware('auth:sanctum')->group(function ()
 });
 
 
-Route::middleware('auth:sanctum')->group(function () {
-    Route::put('/owner/orders/{orderId}/status', [OrderController::class, 'updateOrderStatus']);
-});
+// routes/api.php
+Route::middleware('auth:sanctum')->put('/owner/orders/{order}/status', [OrderController::class, 'updateOrderStatus']);
+
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/buyer/notifications', [OrderController::class, 'getBuyerNotifications']);
