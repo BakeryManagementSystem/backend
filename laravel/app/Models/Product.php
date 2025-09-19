@@ -34,18 +34,7 @@ class Product extends Model
         'image_path',
         'images'
 <<<<<<< Updated upstream
-    ];
-
-    protected $casts = [
-        'price' => 'decimal:2',
-        'discount_price' => 'decimal:2',
-        'weight' => 'decimal:2',
-        'stock_quantity' => 'integer',
-        'category_id' => 'integer',
-        'is_featured' => 'boolean',
-        'ingredients' => 'array',
-        'allergens' => 'array',
-        'images' => 'array'
+<<<<<<< Updated upstream
 =======
 >>>>>>> Stashed changes
     ];
@@ -60,6 +49,23 @@ class Product extends Model
         'ingredients' => 'array',
         'allergens' => 'array',
         'images' => 'array'
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
+    ];
+
+    protected $casts = [
+        'price' => 'decimal:2',
+        'discount_price' => 'decimal:2',
+        'weight' => 'decimal:2',
+        'stock_quantity' => 'integer',
+        'category_id' => 'integer',
+        'is_featured' => 'boolean',
+        'ingredients' => 'array',
+        'allergens' => 'array',
+        'images' => 'array'
+=======
+>>>>>>> Stashed changes
     ];
 
     protected $appends = ['image_url', 'image_urls'];
