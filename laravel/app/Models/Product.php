@@ -45,6 +45,7 @@ class Product extends Model
         'ingredients' => 'array',
         'allergens' => 'array',
         'images' => 'array'
+
     ];
 
     protected $appends = ['image_url', 'image_urls'];
