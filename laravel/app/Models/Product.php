@@ -9,30 +9,89 @@ use Illuminate\Support\Facades\Storage;
 class Product extends Model
 {
     use HasFactory;
+
     protected $table = 'products';
+    public $timestamps = false;
+
     protected $fillable = [
         'owner_id',
         'name',
         'description',
-         'price',
-         'category',
-         'image_path'
+        'price',
+        'discount_price',
+        'category',
+        'category_id',
+        'stock_quantity',
+        'sku',
+        'weight',
+        'dimensions',
+        'ingredients',
+        'allergens',
+        'status',
+        'is_featured',
+        'meta_title',
+        'meta_description',
+        'image_path',
+        'images'
+<<<<<<< Updated upstream
     ];
+
     protected $casts = [
-            'price' => 'float',
-        ];
-    protected $appends = ['image_url'];
+        'price' => 'decimal:2',
+        'discount_price' => 'decimal:2',
+        'weight' => 'decimal:2',
+        'stock_quantity' => 'integer',
+        'category_id' => 'integer',
+        'is_featured' => 'boolean',
+        'ingredients' => 'array',
+        'allergens' => 'array',
+        'images' => 'array'
+=======
+>>>>>>> Stashed changes
+    ];
+
+    protected $casts = [
+        'price' => 'decimal:2',
+        'discount_price' => 'decimal:2',
+        'weight' => 'decimal:2',
+        'stock_quantity' => 'integer',
+        'category_id' => 'integer',
+        'is_featured' => 'boolean',
+        'ingredients' => 'array',
+        'allergens' => 'array',
+        'images' => 'array'
+    ];
+
+    protected $appends = ['image_url', 'image_urls'];
 
     public function getImageUrlAttribute(): ?string
     {
         if (!$this->image_path) {
             return null;
         }
-        // returns absolute URL like http://localhost:8000/storage/products/xyz.jpg
         return url(Storage::url($this->image_path));
     }
 
-        public $timestamps = false;
-    // Optional:
-    // public function owner() { return $this->belongsTo(User::class, 'owner_id'); }
+    public function getImageUrlsAttribute(): array
+    {
+        if (!$this->images || !is_array($this->images)) {
+            return [];
+        }
+        return array_map(fn($path) => url(Storage::url($path)), $this->images);
+    }
+
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function cartItems()
+    {
+        return $this->hasMany(CartItem::class);
+    }
+
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
 }

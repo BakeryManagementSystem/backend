@@ -5,20 +5,22 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class CartItem extends Model
+class ProductReview extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
         'product_id',
-        'quantity',
-        'unit_price'
+        'order_id',
+        'rating',
+        'review',
+        'is_verified_purchase'
     ];
 
     protected $casts = [
-        'unit_price' => 'decimal:2',
-        'quantity' => 'integer'
+        'is_verified_purchase' => 'boolean',
+        'rating' => 'integer'
     ];
 
     public function user()
@@ -29,5 +31,10 @@ class CartItem extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
     }
 }

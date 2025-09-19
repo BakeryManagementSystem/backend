@@ -5,20 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class CartItem extends Model
+class Wishlist extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
-        'product_id',
-        'quantity',
-        'unit_price'
-    ];
-
-    protected $casts = [
-        'unit_price' => 'decimal:2',
-        'quantity' => 'integer'
+        'product_id'
     ];
 
     public function user()
