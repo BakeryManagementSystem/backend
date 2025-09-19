@@ -29,6 +29,14 @@ Route::get('/test/products', [TestController::class, 'testProducts']); // Test e
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()]));
 Route::get('/shops/{owner}', [ProfileController::class, 'publicShop']); // public
 
+// Notifications route (for frontend)
+Route::middleware('auth:sanctum')->get('/notifications', function () {
+    return response()->json([
+        'data' => [],
+        'unread_count' => 0
+    ]);
+});
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
