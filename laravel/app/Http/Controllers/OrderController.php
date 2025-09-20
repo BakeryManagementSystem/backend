@@ -2,15 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CartItem;
 use App\Models\Order;
 use App\Models\OrderItem;
-use App\Models\Product;
 use App\Models\Purchase;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
-
 
 class OrderController extends Controller
 {
@@ -30,8 +27,6 @@ class OrderController extends Controller
 
             $order = Order::create([
                 'buyer_id'     => $buyerId,
-                'buyer_address' => $address,
-                'buyer_phone'   => $phone,
                 'status'       => 'pending',
                 'total_amount' => $total,
             ]);
@@ -62,8 +57,6 @@ class OrderController extends Controller
                     'sold_at'    => now(),
                 ]);
             }
-
-
 
             CartItem::where('user_id', $buyerId)->delete();
 
@@ -100,9 +93,6 @@ class OrderController extends Controller
             'count'     => $rows->count(),
         ]);
     }
-
-
-
 
    public function buyNow(Request $request)
        {
@@ -266,85 +256,79 @@ class OrderController extends Controller
                  }
              }
 
-             public function updateOrderStatus(Request $request, int $orderId)
-             {
-                 $request->validate([
-                     'status' => 'required|in:accepted,rejected',
-                 ]);
+           public function updateOrderStatus(Request $request, int $orderId)
+           {
+               // Accept exactly what the UI should send
+               $request->validate([
+                   'status' => 'required|in:accepted,terminated',
+               ]);
 
-                 $ownerId = $request->user()->id;
-                 $status  = $request->input('status');
+               $ownerId   = $request->user()->id;
+               $newStatus = $request->input('status'); // "accepted" | "terminated"
 
-                 try {
-                     return DB::transaction(function () use ($orderId, $ownerId, $status) {
-                         // Ensure this owner has items in this order
-                         $ownerHasItems = OrderItem::where('order_id', $orderId)
-                             ->where('owner_id', $ownerId)
-                             ->exists();
+               try {
+                   return DB::transaction(function () use ($orderId, $ownerId, $newStatus) {
+                       // Ensure this owner has items in this order
+                       $ownerHasItems = OrderItem::where('order_id', $orderId)
+                           ->where('owner_id', $ownerId)
+                           ->exists();
 
-                         if (!$ownerHasItems) {
-                             return response()->json([
-                                 'success' => false,
-                                 'message' => 'Order not found for this owner',
-                             ], 404);
-                         }
+                       if (!$ownerHasItems) {
+                           return response()->json([
+                               'success' => false,
+                               'message' => 'Order not found for this owner',
+                           ], 404);
+                       }
 
-                         // Ensure order exists
-                         $order = Order::lockForUpdate()->find($orderId);
-                         if (!$order) {
-                             return response()->json([
-                                 'success' => false,
-                                 'message' => 'Order not found',
-                             ], 404);
-                         }
+                       // Lock the order row to avoid race conditions
+                       $order = Order::lockForUpdate()->find($orderId);
+                       if (!$order) {
+                           return response()->json([
+                               'success' => false,
+                               'message' => 'Order not found',
+                           ], 404);
+                       }
 
-                         // Optional: guard against re-updating finalized orders
-                         if (in_array($order->status, ['accepted', 'terminated'], true) && $status !== $order->status) {
-                             // Allow idempotent update to same status, block conflicting transitions
-                             return response()->json([
-                                 'success' => false,
-                                 'message' => 'Order already finalized',
-                             ], 422);
-                         }
+                       // Only allow transition from "pending"
+                       if ($order->status !== 'pending') {
+                           return response()->json([
+                               'success' => false,
+                               'message' => "Order already {$order->status}",
+                           ], 409);
+                       }
 
-                         // Map 'rejected' input to 'terminated' status
-                         $newStatus = $status === 'rejected' ? 'terminated' : $status;
+                       if ($newStatus === 'terminated') {
+                           // 1) Remove only this owner's items/purchases
+                           OrderItem::where('order_id', $orderId)
+                               ->where('owner_id', $ownerId)
+                               ->delete();
 
-                         // Update order status
-                         $order->update(['status' => $newStatus]);
+                           Purchase::where('order_id', $orderId)
+                               ->where('owner_id', $ownerId)
+                               ->delete();
 
-                         // If rejected (terminated), remove only this owner's rows
-                         if ($status === 'rejected') {
-                             OrderItem::where('order_id', $orderId)
-                                 ->where('owner_id', $ownerId)
-                                 ->delete();
+                           // 2) Set order to terminated per your requirement
+                           $order->update(['status' => 'terminated']);
+                       } else {
+                           // Accept: just update order status, keep items/purchases intact
+                           $order->update(['status' => 'accepted']);
+                       }
 
-                             Purchase::where('order_id', $orderId)
-                                 ->where('owner_id', $ownerId)
-                                 ->delete();
+                       return response()->json([
+                           'success' => true,
+                           'message' => "Order {$newStatus} successfully",
+                           'order'   => ['id' => $order->id, 'status' => $newStatus],
+                       ]);
+                   });
+               } catch (\Throwable $e) {
+                   return response()->json([
+                       'success' => false,
+                       'message' => 'Failed to update order status',
+                       'error' => $e->getMessage(),
+                   ], 500);
+               }
+           }
 
-                             // If no items remain for this order, optionally delete the order
-                             $remainingItems = OrderItem::where('order_id', $orderId)->exists();
-                             if (!$remainingItems) {
-                                 // If you prefer to keep the order record, remove this block
-                                 // and only keep status as 'terminated'.
-                                 // $order->delete();
-                             }
-                         }
-
-                         return response()->json([
-                             'success' => true,
-                             'message' => "Order {$newStatus} successfully",
-                         ]);
-                     });
-                 } catch (\Throwable $e) {
-                     return response()->json([
-                         'success' => false,
-                         'message' => 'Failed to update order status',
-                         'error' => $e->getMessage(),
-                     ], 500);
-                 }
-             }
 
 
              public function getBuyerNotifications(Request $request)
@@ -382,5 +366,4 @@ class OrderController extends Controller
                      ], 500);
                  }
              }
-
 }
