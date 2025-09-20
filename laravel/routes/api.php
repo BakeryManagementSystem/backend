@@ -160,14 +160,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // Legacy Cart
     Route::get('/cart', [CartController::class, 'index']);
     Route::post('/cart', [CartController::class, 'store']);
-    Route::patch('/cart/{product}', [CartController::class, 'update']);
-    Route::delete('/cart/{product}', [CartController::class, 'destroy']);
+    Route::patch('/cart/{productId}', [CartController::class, 'update']);
+    Route::delete('/cart/{productId}', [CartController::class, 'destroy']);
     Route::delete('/cart', [CartController::class, 'clear']);
 
-    // Legacy Orders
-    Route::post('/orders/checkout', [OrderController::class, 'checkout']);
+    // Legacy orders
     Route::get('/orders', [OrderController::class, 'index']);
-    Route::patch('/orders/{order}', [OrderController::class, 'updateStatus']);
+    Route::post('/orders/checkout', [OrderController::class, 'checkout']);
+    Route::patch('/orders/{id}', [OrderController::class, 'updateStatus']);
 
     // Legacy shop profiles (keeping for compatibility)
     Route::get('/me/shop-profile', [ProfileController::class, 'myShop']);
