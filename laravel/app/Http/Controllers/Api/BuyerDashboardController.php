@@ -69,8 +69,8 @@ class BuyerDashboardController extends Controller
                     'items' => $order->orderItems->count(),
                     'products' => $order->orderItems->map(function ($item) {
                         return [
-                            'name' => $item->product->name,
-                            'image' => $item->product->image_path,
+                            'name' => $item->product->name ?? 'Unknown Product',
+                            'image' => $item->product->image_url ?? $item->product->image_path ?? null,
                             'quantity' => $item->quantity,
                             'price' => (float) $item->unit_price
                         ];
@@ -88,9 +88,9 @@ class BuyerDashboardController extends Controller
             ->map(function ($item) {
                 return [
                     'id' => $item->product_id,
-                    'name' => $item->product->name,
-                    'price' => (float) $item->product->price,
-                    'image' => $item->product->image_path,
+                    'name' => $item->product->name ?? 'Unknown Product',
+                    'price' => (float) ($item->product->price ?? 0),
+                    'image' => $item->product->image_url ?? $item->product->image_path ?? null,
                     'inStock' => true, // You can add stock tracking later
                     'seller' => $item->product->owner->name ?? 'Unknown'
                 ];
@@ -119,15 +119,19 @@ class BuyerDashboardController extends Controller
             ->limit(6)
             ->get()
             ->map(function ($product) {
-                // Calculate average rating
-                $averageRating = ProductReview::where('product_id', $product->id)->avg('rating') ?? 0;
-                $reviewCount = ProductReview::where('product_id', $product->id)->count();
+                // Calculate average rating if ProductReview model exists
+                $averageRating = 0;
+                $reviewCount = 0;
+                if (class_exists('App\Models\ProductReview')) {
+                    $averageRating = \App\Models\ProductReview::where('product_id', $product->id)->avg('rating') ?? 0;
+                    $reviewCount = \App\Models\ProductReview::where('product_id', $product->id)->count();
+                }
 
                 return [
                     'id' => $product->id,
-                    'name' => $product->name,
-                    'price' => (float) $product->price,
-                    'image' => $product->image_path,
+                    'name' => $product->name ?? 'Unknown Product',
+                    'price' => (float) ($product->price ?? 0),
+                    'image' => $product->image_url ?? $product->image_path ?? null,
                     'rating' => round($averageRating, 1),
                     'reviewCount' => $reviewCount,
                     'seller' => $product->owner->name ?? 'Unknown'

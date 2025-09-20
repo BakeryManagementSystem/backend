@@ -6,8 +6,10 @@ use App\Models\CartItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Purchase;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
@@ -15,21 +17,47 @@ class OrderController extends Controller
     {
         $buyerId = $request->user()->id;
 
+        // First try to get cart items from database
         $cart = CartItem::with('product')
             ->where('user_id', $buyerId)->get();
+
+        // If database cart is empty, check if cart items are provided in request
+        if ($cart->isEmpty() && $request->has('items')) {
+            // Validate the provided cart items
+            $request->validate([
+                'items' => 'required|array|min:1',
+                'items.*.id' => 'required|exists:products,id',
+                'items.*.quantity' => 'required|integer|min:1',
+                'items.*.price' => 'required|numeric|min:0'
+            ]);
+
+            // Create temporary cart items from the request
+            $cart = collect($request->items)->map(function ($item) use ($buyerId) {
+                $product = \App\Models\Product::find($item['id']);
+
+                return (object) [
+                    'product' => $product,
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['price']
+                ];
+            });
+        }
 
         if ($cart->isEmpty()) {
             return response()->json(['message' => 'Cart is empty'], 422);
         }
 
-        return DB::transaction(function () use ($buyerId, $cart) {
+        return DB::transaction(function () use ($buyerId, $cart, $request) {
             $total = $cart->sum(fn($ci) => $ci->quantity * (float)$ci->unit_price);
 
+            // Create order without payment processing - use 'pending' which is more likely to exist
             $order = Order::create([
                 'buyer_id'     => $buyerId,
-                'status'       => 'pending',
+                'status'       => 'pending', // Use the most basic status that should exist
                 'total_amount' => $total,
             ]);
+
+            $sellerNotifications = [];
 
             foreach ($cart as $ci) {
                 $p = $ci->product;
@@ -56,11 +84,36 @@ class OrderController extends Controller
                     'line_total' => $line,
                     'sold_at'    => now(),
                 ]);
+
+                // Collect sellers for notifications
+                if (!in_array($p->owner_id, $sellerNotifications)) {
+                    $sellerNotifications[] = $p->owner_id;
+                }
+
+                // Update product stock
+                if ($p->stock_quantity > 0) {
+                    $p->decrement('stock_quantity', $ci->quantity);
+                }
             }
 
+            // Clear cart after successful order
             CartItem::where('user_id', $buyerId)->delete();
 
-            return response()->json(['message' => 'Order placed', 'order' => $order->load('items')], 201);
+            // Send real notifications to sellers
+            $buyer = $request->user();
+            foreach ($sellerNotifications as $sellerId) {
+                Notification::createOrderNotification(
+                    $sellerId,
+                    $order->id,
+                    $buyer->name ?? 'Unknown Customer'
+                );
+            }
+
+            return response()->json([
+                'message' => 'Order placed successfully!',
+                'order' => $order->load('orderItems.product'),
+                'notification_sent_to_sellers' => $sellerNotifications
+            ], 201);
         });
     }
 
@@ -68,7 +121,7 @@ class OrderController extends Controller
     {
         $buyerId = $request->user()->id;
 
-        $orders = Order::with('items.product')
+        $orders = Order::with('orderItems.product')
             ->where('buyer_id', $buyerId)
             ->orderBy('id', 'desc')
             ->get();
@@ -76,11 +129,27 @@ class OrderController extends Controller
         return response()->json(['orders' => $orders]);
     }
 
+    public function show(Request $request, $id)
+    {
+        $buyerId = $request->user()->id;
+
+        $order = Order::with('orderItems.product')
+            ->where('buyer_id', $buyerId)
+            ->where('id', $id)
+            ->first();
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        return response()->json(['order' => $order]);
+    }
+
     public function ownerPurchases(Request $request)
     {
         $ownerId = $request->user()->id;
 
-        $rows = Purchase::with('product')
+        $rows = Purchase::with('product', 'buyer')
             ->where('owner_id', $ownerId)
             ->orderBy('sold_at','desc')
             ->get();
@@ -94,276 +163,105 @@ class OrderController extends Controller
         ]);
     }
 
-   public function buyNow(Request $request)
-       {
-           $validator = Validator::make($request->all(), [
-               'product_id' => 'required|exists:products,id',
-               'quantity' => 'required|integer|min:1',
-               'buyer_name' => 'required|string|max:255',
-               'buyer_email' => 'required|email|max:255',
-               'buyer_phone' => 'required|string|max:20',
-               'buyer_address' => 'required|string|max:500',
-           ]);
+    public function buyNow(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'product_id' => 'required|exists:products,id',
+            'quantity' => 'required|integer|min:1',
+        ]);
 
-           if ($validator->fails()) {
-               return response()->json([
-                   'message' => 'Validation failed',
-                   'errors' => $validator->errors()
-               ], 422);
-           }
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
 
-           $buyerId = $request->user()->id;
-           $productId = $request->product_id;
-           $quantity = $request->quantity;
+        $buyerId = $request->user()->id;
+        $productId = $request->product_id;
+        $quantity = $request->quantity;
 
-           $product = Product::findOrFail($productId);
+        return DB::transaction(function () use ($buyerId, $productId, $quantity) {
+            $product = \App\Models\Product::find($productId);
 
-           return DB::transaction(function () use ($request, $buyerId, $product, $quantity) {
-               $lineTotal = $quantity * (float)$product->price;
+            if (!$product) {
+                return response()->json(['message' => 'Product not found'], 404);
+            }
 
-               // Create order
-               $order = Order::create([
-                   'buyer_id' => $buyerId,
-                   'buyer_phone' => $request->buyer_phone,
-                   'buyer_address' => $request->buyer_address,
-                   'status' => 'pending',
-                   'total_amount' => $lineTotal,
-               ]);
+            if ($product->stock_quantity < $quantity) {
+                return response()->json(['message' => 'Insufficient stock'], 422);
+            }
 
-               // Create order item
-               OrderItem::create([
-                   'order_id' => $order->id,
-                   'product_id' => $product->id,
-                   'owner_id' => $product->owner_id,
-                   'quantity' => $quantity,
-                   'unit_price' => $product->price,
-                   'line_total' => $lineTotal,
-               ]);
+            $unitPrice = $product->discount_price ?: $product->price;
+            $lineTotal = $quantity * $unitPrice;
 
-               // Create purchase record
-               Purchase::create([
-                   'owner_id' => $product->owner_id,
-                   'buyer_id' => $buyerId,
-                   'order_id' => $order->id,
-                   'product_id' => $product->id,
-                   'quantity' => $quantity,
-                   'unit_price' => $product->price,
-                   'line_total' => $lineTotal,
-                   'sold_at' => now(),
-               ]);
+            // Create order without payment processing
+            $order = Order::create([
+                'buyer_id' => $buyerId,
+                'status' => 'pending', // Use the most basic status that should exist
+                'total_amount' => $lineTotal,
+            ]);
 
-               // TODO: Send notification to product owner
-               // You can implement this using Laravel's notification system
+            OrderItem::create([
+                'order_id' => $order->id,
+                'product_id' => $product->id,
+                'owner_id' => $product->owner_id,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'line_total' => $lineTotal,
+            ]);
 
-               return response()->json([
-                   'message' => 'Order placed successfully',
-                   'order' => $order->load('items.product')
-               ], 201);
-           });
-       }
+            Purchase::create([
+                'owner_id' => $product->owner_id,
+                'buyer_id' => $buyerId,
+                'order_id' => $order->id,
+                'product_id' => $product->id,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'line_total' => $lineTotal,
+                'sold_at' => now(),
+            ]);
 
-       public function getUserProfile(Request $request)
-       {
-           $user = $request->user();
-           return response()->json([
-               'name' => $user->name,
-               'email' => $user->email,
-               'user_type' => $user->user_type,
-           ]);
-       }
+            // Update product stock
+            $product->decrement('stock_quantity', $quantity);
 
+            // Log notification for seller
+            \Log::info("New order notification for seller ID: {$product->owner_id}, Order ID: {$order->id}");
 
-       public function getOwnerInbox(Request $request)
-           {
-               try {
-                   $ownerId = $request->user()->id;
+            return response()->json([
+                'message' => 'Order placed successfully!',
+                'order' => $order->load('orderItems.product')
+            ], 201);
+        });
+    }
 
-                   $notifications = DB::table('purchases as p')
-                       ->join('products as pr', 'p.product_id', '=', 'pr.id')
-                       ->join('users as u', 'p.buyer_id', '=', 'u.id')
-                       ->join('orders as o', 'p.order_id', '=', 'o.id')
-                       ->where('pr.owner_id', $ownerId)
-                       ->select(
-                           'p.id as purchase_id',
-                           'p.quantity',
-                           'p.line_total',
-                           'pr.name as product_name',
-                           'u.name as buyer_name',
-                           'u.email as buyer_email',
-                           'o.buyer_phone',
-                           'o.buyer_address',
-                           'o.created_at as order_date',
-                           'o.status as order_status'
-                       )
-                       ->orderBy('o.created_at', 'desc')
-                       ->get();
+    public function updateStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,processing,shipped,delivered,cancelled'
+        ]);
 
-                   return response()->json([
-                       'success' => true,
-                       'notifications' => $notifications
-                   ]);
+        $order = Order::find($id);
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
 
-               } catch (\Exception $e) {
-                   return response()->json([
-                       'success' => false,
-                       'message' => 'Failed to fetch inbox data',
-                       'error' => $e->getMessage()
-                   ], 500);
-               }
-           }
+        $order->update(['status' => $request->status]);
 
-             public function getOwnerOrders(Request $request)
-             {
-                 try {
-                     $ownerId = $request->user()->id;
+        // Create notification for buyer about status change
+        if (class_exists('App\Models\Notification')) {
+            \App\Models\Notification::create([
+                'user_id' => $order->buyer_id,
+                'type' => 'order_status_updated',
+                'title' => 'Order Status Updated',
+                'message' => "Your order #{$order->id} status has been updated to " . ucfirst($request->status),
+                'data' => [
+                    'order_id' => $order->id,
+                    'new_status' => $request->status
+                ]
+            ]);
+        }
 
-                     $orders = DB::table('order_items as oi')
-                         ->join('products as p', 'oi.product_id', '=', 'p.id')
-                         ->join('orders as o', 'oi.order_id', '=', 'o.id')
-                         ->join('users as u', 'o.buyer_id', '=', 'u.id')
-                         ->where('oi.owner_id', $ownerId)
-                         ->select(
-                             'oi.id as order_item_id',
-                             'oi.order_id',
-                             'oi.product_id',
-                             'oi.quantity',
-                             'oi.unit_price',
-                             'oi.line_total',
-                             'p.name as product_name',
-                             'p.description as product_description',
-                             'p.category as product_category',
-                             DB::raw('CASE WHEN p.image_path IS NULL OR p.image_path = "" THEN NULL ELSE p.image_path END as product_image'),
-                             'o.status as order_status',
-                             'o.buyer_address',
-                             'o.buyer_phone',
-                             'o.created_at as order_date',
-                             'u.name as buyer_name',
-                             'u.email as buyer_email'
-                         )
-                         ->orderBy('o.created_at', 'desc')
-                         ->get();
-
-                     return response()->json([
-                         'success' => true,
-                         'orders' => $orders,
-                     ]);
-                 } catch (\Throwable $e) {
-                     return response()->json([
-                         'success' => false,
-                         'message' => 'Failed to fetch orders data',
-                         'error' => $e->getMessage(),
-                     ], 500);
-                 }
-             }
-
-           public function updateOrderStatus(Request $request, int $orderId)
-           {
-               // Accept exactly what the UI should send
-               $request->validate([
-                   'status' => 'required|in:accepted,terminated',
-               ]);
-
-               $ownerId   = $request->user()->id;
-               $newStatus = $request->input('status'); // "accepted" | "terminated"
-
-               try {
-                   return DB::transaction(function () use ($orderId, $ownerId, $newStatus) {
-                       // Ensure this owner has items in this order
-                       $ownerHasItems = OrderItem::where('order_id', $orderId)
-                           ->where('owner_id', $ownerId)
-                           ->exists();
-
-                       if (!$ownerHasItems) {
-                           return response()->json([
-                               'success' => false,
-                               'message' => 'Order not found for this owner',
-                           ], 404);
-                       }
-
-                       // Lock the order row to avoid race conditions
-                       $order = Order::lockForUpdate()->find($orderId);
-                       if (!$order) {
-                           return response()->json([
-                               'success' => false,
-                               'message' => 'Order not found',
-                           ], 404);
-                       }
-
-                       // Only allow transition from "pending"
-                       if ($order->status !== 'pending') {
-                           return response()->json([
-                               'success' => false,
-                               'message' => "Order already {$order->status}",
-                           ], 409);
-                       }
-
-                       if ($newStatus === 'terminated') {
-                           // 1) Remove only this owner's items/purchases
-                           OrderItem::where('order_id', $orderId)
-                               ->where('owner_id', $ownerId)
-                               ->delete();
-
-                           Purchase::where('order_id', $orderId)
-                               ->where('owner_id', $ownerId)
-                               ->delete();
-
-                           // 2) Set order to terminated per your requirement
-                           $order->update(['status' => 'terminated']);
-                       } else {
-                           // Accept: just update order status, keep items/purchases intact
-                           $order->update(['status' => 'accepted']);
-                       }
-
-                       return response()->json([
-                           'success' => true,
-                           'message' => "Order {$newStatus} successfully",
-                           'order'   => ['id' => $order->id, 'status' => $newStatus],
-                       ]);
-                   });
-               } catch (\Throwable $e) {
-                   return response()->json([
-                       'success' => false,
-                       'message' => 'Failed to update order status',
-                       'error' => $e->getMessage(),
-                   ], 500);
-               }
-           }
-
-
-
-             public function getBuyerNotifications(Request $request)
-             {
-                 try {
-                     $buyerId = $request->user()->id;
-
-                     $notifications = DB::table('purchases as p')
-                         ->join('products as pr', 'p.product_id', '=', 'pr.id')
-                         ->join('orders as o', 'p.order_id', '=', 'o.id')
-                         ->where('p.buyer_id', $buyerId)
-                         ->select(
-                             'p.id as purchase_id',
-                             'p.quantity',
-                             'p.line_total',
-                             'pr.name as product_name',
-                             'pr.description as product_description',
-                             'pr.category as product_category',
-                             DB::raw('CASE WHEN pr.image_path IS NULL OR pr.image_path = "" THEN NULL ELSE pr.image_path END as product_image'),
-                             'o.status as order_status',
-                             'o.created_at as order_date'
-                         )
-                         ->orderBy('o.created_at', 'desc')
-                         ->get();
-
-                     return response()->json([
-                         'success' => true,
-                         'notifications' => $notifications,
-                     ]);
-                 } catch (\Throwable $e) {
-                     return response()->json([
-                         'success' => false,
-                         'message' => 'Failed to fetch notifications data',
-                         'error' => $e->getMessage(),
-                     ], 500);
-                 }
-             }
+        return response()->json([
+            'message' => 'Order status updated successfully',
+            'order' => $order
+        ]);
+    }
 }

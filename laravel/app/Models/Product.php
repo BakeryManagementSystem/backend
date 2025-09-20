@@ -5,13 +5,22 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 
 class Product extends Model
 {
     use HasFactory;
 
     protected $table = 'products';
-    public $timestamps = false;
+
+    // Dynamically check if timestamp columns exist
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+
+        // Only enable timestamps if the columns exist in the database
+        $this->timestamps = Schema::hasColumns('products', ['created_at', 'updated_at']);
+    }
 
     protected $fillable = [
         'owner_id',
@@ -45,7 +54,6 @@ class Product extends Model
         'ingredients' => 'array',
         'allergens' => 'array',
         'images' => 'array'
-
     ];
 
     protected $appends = ['image_url', 'image_urls'];
@@ -79,5 +87,10 @@ class Product extends Model
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function wishlistItems()
+    {
+        return $this->hasMany(Wishlist::class);
     }
 }

@@ -36,7 +36,7 @@ class OrderController extends Controller
             DB::beginTransaction();
 
             // Get cart items
-            $cartItems = CartItem::with('product')
+            $cartItems = CartItem::with('product.owner')
                 ->where('user_id', Auth::id())
                 ->get();
 
@@ -56,7 +56,8 @@ class OrderController extends Controller
                 'status' => 'pending'
             ]);
 
-            // Create order items
+            // Create order items and collect sellers
+            $sellers = collect();
             foreach ($cartItems as $cartItem) {
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -66,6 +67,23 @@ class OrderController extends Controller
                     'unit_price' => $cartItem->unit_price,
                     'line_total' => $cartItem->quantity * $cartItem->unit_price
                 ]);
+
+                // Collect unique sellers
+                if ($cartItem->product->owner_id && !$sellers->contains('id', $cartItem->product->owner_id)) {
+                    $sellers->push($cartItem->product->owner);
+                }
+            }
+
+            // Create notifications for sellers
+            $buyer = Auth::user();
+            foreach ($sellers as $seller) {
+                if ($seller) {
+                    \App\Models\Notification::createOrderNotification(
+                        $seller->id,
+                        $order->id,
+                        $buyer->name
+                    );
+                }
             }
 
             // Clear cart
@@ -80,7 +98,7 @@ class OrderController extends Controller
 
         } catch (\Exception $e) {
             DB::rollback();
-            return response()->json(['error' => 'Order placement failed'], 500);
+            return response()->json(['error' => 'Order placement failed: ' . $e->getMessage()], 500);
         }
     }
 
@@ -90,7 +108,7 @@ class OrderController extends Controller
             'status' => 'required|in:pending,paid,shipped,delivered,cancelled'
         ]);
 
-        $order = Order::findOrFail($id);
+        $order = Order::with('buyer')->findOrFail($id);
 
         // Check if user can update this order (seller or admin)
         $orderItems = OrderItem::where('order_id', $id)->get();
@@ -101,7 +119,21 @@ class OrderController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $order->update(['status' => $request->status]);
+        $oldStatus = $order->status;
+        $newStatus = $request->status;
+
+        $order->update(['status' => $newStatus]);
+
+        // Create notification for buyer when status changes (only if updated by seller)
+        if ($oldStatus !== $newStatus && $order->buyer && $order->buyer_id !== Auth::id()) {
+            $user = Auth::user();
+            \App\Models\Notification::createOrderStatusNotification(
+                $order->buyer->id,
+                $order->id,
+                $newStatus,
+                $user->name
+            );
+        }
 
         return response()->json($order);
     }

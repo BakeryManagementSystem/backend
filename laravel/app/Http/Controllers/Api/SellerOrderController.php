@@ -99,10 +99,23 @@ class SellerOrderController extends Controller
 
         $order = Order::whereHas('orderItems', function($q) use ($user) {
             $q->where('owner_id', $user->id);
-        })->findOrFail($orderId);
+        })->with('buyer')->findOrFail($orderId);
 
-        $order->status = $request->status;
+        $oldStatus = $order->status;
+        $newStatus = $request->status;
+
+        $order->status = $newStatus;
         $order->save();
+
+        // Create notification for buyer when status changes
+        if ($oldStatus !== $newStatus && $order->buyer) {
+            \App\Models\Notification::createOrderStatusNotification(
+                $order->buyer->id,
+                $order->id,
+                $newStatus,
+                $user->name
+            );
+        }
 
         return response()->json([
             'message' => 'Order status updated successfully',
