@@ -22,3 +22,8 @@ Route::get('/{any}', function () {
 Route::get('/', function () {
     return view('app');
 });
+
+// Add login route to prevent RouteNotFoundException
+Route::get('/login', function () {
+    return response()->json(['message' => 'Please use the API login endpoint'], 401);
+})->name('login');

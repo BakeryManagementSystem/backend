@@ -48,15 +48,15 @@ class SellerDashboardController extends Controller
         ->orderBy('created_at', 'desc')
         ->take(5)
         ->get()
-        ->map(function($order) {
-            $sellerItems = $order->orderItems->where('owner_id', auth()->id());
+        ->map(function($order) use ($user) {
+            $sellerItems = $order->orderItems->where('owner_id', $user->id);
             $firstItem = $sellerItems->first();
 
             return [
                 'id' => $order->id,
                 'customer' => $order->buyer->name ?? 'Guest',
                 'product' => $firstItem->product->name ?? 'Unknown Product',
-                'amount' => $sellerItems->sum('line_total'),
+                'amount' => (float) $sellerItems->sum('line_total'),
                 'status' => $order->status,
                 'date' => $order->created_at->format('Y-m-d')
             ];
@@ -74,8 +74,8 @@ class SellerDashboardController extends Controller
                     'id' => $product->id,
                     'name' => $product->name,
                     'sales' => $product->sales_count ?? 0,
-                    'revenue' => $product->revenue ?? 0,
-                    'image' => $product->image_url,
+                    'revenue' => (float) ($product->revenue ?? 0),
+                    'image' => $product->image_url ?? $product->image_path ?? null,
                     'rating' => 4.5, // Default since rating field doesn't exist
                     'stock' => 10 // Default since stock field doesn't exist
                 ];
@@ -92,14 +92,15 @@ class SellerDashboardController extends Controller
         ->orderBy('created_at', 'desc')
         ->take(3)
         ->get()
-        ->each(function($order) use ($recentActivities) {
-            $sellerItems = $order->orderItems->where('owner_id', auth()->id());
+        ->each(function($order) use ($recentActivities, $user) {
+            $sellerItems = $order->orderItems->where('owner_id', $user->id);
             if ($sellerItems->isNotEmpty()) {
                 $recentActivities->push([
                     'id' => 'order_' . $order->id,
                     'type' => 'order',
                     'message' => 'New order received for ' . $sellerItems->first()->product->name,
-                    'time' => $order->created_at->diffForHumans()
+                    'time' => $order->created_at->diffForHumans(),
+                    'status' => $order->status
                 ]);
             }
         });
@@ -108,14 +109,13 @@ class SellerDashboardController extends Controller
             'stats' => [
                 'totalProducts' => $totalProducts,
                 'totalOrders' => $totalOrders,
-                'totalRevenue' => round($totalRevenue, 2),
-                'averageRating' => $averageRating,
                 'pendingOrders' => $pendingOrders,
-                'lowStockItems' => 0 // Since we don't have stock field
+                'totalRevenue' => (float) $totalRevenue,
+                'averageRating' => $averageRating
             ],
             'recentOrders' => $recentOrders,
             'topProducts' => $topProducts,
-            'recentActivities' => $recentActivities->take(5)->values()
+            'recentActivities' => $recentActivities->take(10)->values()
         ]);
     }
 
@@ -126,29 +126,29 @@ class SellerDashboardController extends Controller
     {
         $user = $request->user();
 
-        $stats = [
-            'totalProducts' => Product::where('owner_id', $user->id)->count(),
-            'activeProducts' => Product::where('owner_id', $user->id)->count(), // All products are active since no stock field
-            'totalOrders' => Order::whereHas('orderItems', function($query) use ($user) {
-                $query->where('owner_id', $user->id);
-            })->count(),
-            'pendingOrders' => Order::whereHas('orderItems', function($query) use ($user) {
-                $query->where('owner_id', $user->id);
-            })->where('status', 'pending')->count(),
-            'totalRevenue' => OrderItem::where('owner_id', $user->id)
-                ->whereHas('order', function($query) {
-                    $query->whereIn('status', ['delivered', 'shipped']);
-                })->sum('line_total'),
-            'monthlyRevenue' => OrderItem::where('owner_id', $user->id)
-                ->whereHas('order', function($query) {
-                    $query->whereIn('status', ['delivered', 'shipped'])
-                          ->whereMonth('created_at', now()->month)
-                          ->whereYear('created_at', now()->year);
-                })->sum('line_total'),
-            'averageRating' => 4.5, // Default since no rating field
-            'lowStockItems' => 0 // Since no stock field
-        ];
+        $totalProducts = Product::where('owner_id', $user->id)->count();
 
-        return response()->json($stats);
+        $totalOrders = Order::whereHas('orderItems', function($query) use ($user) {
+            $query->where('owner_id', $user->id);
+        })->count();
+
+        $totalRevenue = OrderItem::where('owner_id', $user->id)
+            ->whereHas('order', function($query) {
+                $query->whereIn('status', ['delivered', 'shipped', 'processing']);
+            })->sum('line_total');
+
+        $monthlyRevenue = OrderItem::where('owner_id', $user->id)
+            ->whereHas('order', function($query) {
+                $query->whereIn('status', ['delivered', 'shipped', 'processing'])
+                      ->whereMonth('created_at', now()->month)
+                      ->whereYear('created_at', now()->year);
+            })->sum('line_total');
+
+        return response()->json([
+            'totalProducts' => $totalProducts,
+            'totalOrders' => $totalOrders,
+            'totalRevenue' => (float) $totalRevenue,
+            'monthlyRevenue' => (float) $monthlyRevenue
+        ]);
     }
 }

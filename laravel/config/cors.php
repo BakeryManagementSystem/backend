@@ -23,9 +23,7 @@ return [
         'http://127.0.0.1:5173',
         env('FRONTEND_URL', 'http://localhost:5173'), // Production frontend URL
     ],
-    'allowed_origins_patterns' => [
-        '/^https:\/\/.*\.up\.railway\.app$/',      // Allow all Railway domains
-    ],
+    'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
     'max_age' => 0,
