@@ -18,6 +18,10 @@ use App\Models\Product;
 
 Route::middleware('auth:sanctum')->get('/user', fn (Request $r) => $r->user());
 
+// Health check endpoints
+Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()]));
+Route::options('/health', fn () => response()->json(['status' => 'ok'])); // For CORS preflight
+
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -26,7 +30,6 @@ Route::get('/products/{product}', [ProductController::class, 'show']);
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/categories/{id}', [CategoryController::class, 'show']);
 Route::get('/test/products', [TestController::class, 'testProducts']); // Test endpoint
-Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()]));
 Route::get('/shops/{owner}', [ProfileController::class, 'publicShop']); // public
 
 // Notifications route (for frontend)

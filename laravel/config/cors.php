@@ -21,11 +21,15 @@ return [
         'http://127.0.0.1:5174',
         'http://localhost:5173',
         'http://127.0.0.1:5173',
+        'https://frontend-production-a9bd.up.railway.app', // Your current frontend
+        'https://backend-production-f7ee.up.railway.app',  // Your backend (for merged deployment)
         env('FRONTEND_URL', 'http://localhost:5173'), // Production frontend URL
     ],
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '/^https:\/\/.*\.up\.railway\.app$/',      // Allow all Railway domains
+    ],
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
     'max_age' => 0,
-    'supports_credentials' => false,
+    'supports_credentials' => true,
 ];
