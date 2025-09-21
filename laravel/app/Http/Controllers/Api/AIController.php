@@ -188,7 +188,7 @@ class AIController extends Controller
                     'user_type' => $user->user_type,
                     'phone' => $user->phone ?? null,
                     'address' => $user->address ?? null,
-                    'created_at' => $user->created_at->format('Y-m-d H:i:s')
+                    'created_at' => $user->created_at ? $user->created_at->format('Y-m-d H:i:s') : null
                 ]
             ]);
 
