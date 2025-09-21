@@ -13,14 +13,8 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Serve React frontend for all routes except API routes
-Route::get('/{any}', function () {
-    return view('app');
-})->where('any', '^(?!api).*$');
-
-// Root route also serves React app
 Route::get('/', function () {
-    return view('app');
+    return view('welcome');
 });
 
 // Add login route to prevent RouteNotFoundException
