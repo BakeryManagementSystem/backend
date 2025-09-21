@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\CartController as ApiCartController;
 use App\Http\Controllers\Api\OrderController as ApiOrderController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\TestController;
+use App\Http\Controllers\Api\AIController;
 use App\Models\Product;
 
 Route::middleware('auth:sanctum')->get('/user', fn (Request $r) => $r->user());
@@ -28,6 +29,19 @@ Route::get('/categories/{id}', [CategoryController::class, 'show']);
 Route::get('/test/products', [TestController::class, 'testProducts']); // Test endpoint
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()]));
 Route::get('/shops/{owner}', [ProfileController::class, 'publicShop']); // public
+
+// AI Assistant routes (public - can work for both logged in and guest users)
+Route::get('/ai/context', [AIController::class, 'getContextData']);
+Route::get('/ai/products', [AIController::class, 'getProducts']);
+Route::get('/ai/categories', [AIController::class, 'getCategories']);
+
+// Notifications route (for frontend)
+Route::middleware('auth:sanctum')->get('/notifications', function () {
+    return response()->json([
+        'data' => [],
+        'unread_count' => 0
+    ]);
+});
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -51,6 +65,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Buyer-specific routes
     Route::get('/buyer/dashboard', [\App\Http\Controllers\Api\BuyerDashboardController::class, 'index']);
+    Route::get('/buyer/orders', [\App\Http\Controllers\Api\BuyerOrderController::class, 'index']);
+    Route::get('/buyer/orders/{id}', [\App\Http\Controllers\Api\BuyerOrderController::class, 'show']);
+    Route::patch('/buyer/orders/{id}/cancel', [\App\Http\Controllers\Api\BuyerOrderController::class, 'cancel']);
+    Route::get('/buyer/orders/stats', [\App\Http\Controllers\Api\BuyerOrderController::class, 'getStats']);
     Route::get('/buyer/wishlist', [\App\Http\Controllers\Api\WishlistController::class, 'index']);
     Route::post('/buyer/wishlist', [\App\Http\Controllers\Api\WishlistController::class, 'store']);
     Route::delete('/buyer/wishlist/{productId}', [\App\Http\Controllers\Api\WishlistController::class, 'destroy']);
@@ -62,12 +80,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/seller/orders', [\App\Http\Controllers\Api\SellerOrderController::class, 'index']);
     Route::patch('/seller/orders/{orderId}', [\App\Http\Controllers\Api\SellerOrderController::class, 'updateStatus']);
     Route::get('/seller/orders/stats', [\App\Http\Controllers\Api\SellerOrderController::class, 'getStats']);
+
+    // Seller Products Management (NEW)
     Route::get('/seller/products', [\App\Http\Controllers\Api\SellerProductController::class, 'index']);
-    Route::get('/seller/products/top', [\App\Http\Controllers\Api\SellerProductController::class, 'getTopProducts']);
-    Route::get('/seller/products/low-stock', [\App\Http\Controllers\Api\SellerProductController::class, 'getLowStockProducts']);
+    Route::post('/seller/products', [\App\Http\Controllers\Api\SellerProductController::class, 'store']);
+    Route::get('/seller/products/{id}', [\App\Http\Controllers\Api\SellerProductController::class, 'show']);
+    Route::put('/seller/products/{id}', [\App\Http\Controllers\Api\SellerProductController::class, 'update']);
+    Route::delete('/seller/products/{id}', [\App\Http\Controllers\Api\SellerProductController::class, 'destroy']);
     Route::get('/seller/products/stats', [\App\Http\Controllers\Api\SellerProductController::class, 'getStats']);
-    Route::get('/seller/analytics', [\App\Http\Controllers\Api\SellerAnalyticsController::class, 'index']);
-    Route::get('/seller/activities', [\App\Http\Controllers\Api\SellerDashboardController::class, 'index']);
+
+    // Notifications routes (ENHANCED)
+    Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
+    Route::patch('/notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead']);
+    Route::patch('/notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead']);
 
     // Shop management routes (new enhanced version)
     Route::get('/owner/shop', [\App\Http\Controllers\Api\ShopController::class, 'getShop']);
@@ -145,6 +170,11 @@ Route::middleware('auth:sanctum')->group(function () {
             ],
         ]);
     });
+
+    // AI Assistant protected routes (user-specific data)
+    Route::get('/user/profile', [AIController::class, 'getUserProfile']);
+    Route::get('/user/orders', [AIController::class, 'getUserOrders']);
+    Route::get('/user/balance', [AIController::class, 'getUserBalance']);
 });
 
 // Legacy routes (keeping for backward compatibility)
@@ -152,14 +182,19 @@ Route::middleware('auth:sanctum')->group(function () {
     // Legacy Cart
     Route::get('/cart', [CartController::class, 'index']);
     Route::post('/cart', [CartController::class, 'store']);
-    Route::patch('/cart/{product}', [CartController::class, 'update']);
-    Route::delete('/cart/{product}', [CartController::class, 'destroy']);
+    Route::patch('/cart/{productId}', [CartController::class, 'update']);
+    Route::delete('/cart/{productId}', [CartController::class, 'destroy']);
     Route::delete('/cart', [CartController::class, 'clear']);
 
-    // Legacy Orders
-    Route::post('/orders/checkout', [OrderController::class, 'checkout']);
+    // Legacy orders
     Route::get('/orders', [OrderController::class, 'index']);
-    Route::patch('/orders/{order}', [OrderController::class, 'updateStatus']);
+    Route::post('/orders/checkout', [OrderController::class, 'checkout']);
+    Route::patch('/orders/{id}', [OrderController::class, 'updateStatus']);
+
+    // Notifications
+    Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
+    Route::patch('/notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead']);
+    Route::patch('/notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead']);
 
     // Legacy shop profiles (keeping for compatibility)
     Route::get('/me/shop-profile', [ProfileController::class, 'myShop']);

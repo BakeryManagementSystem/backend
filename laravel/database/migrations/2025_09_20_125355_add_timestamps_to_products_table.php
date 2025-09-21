@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('ingredient_batches', function (Blueprint $table) {
-            $table->foreign(['owner_id'], 'ib_owner_fk')->references(['id'])->on('users')->onUpdate('no action')->onDelete('cascade');
+        Schema::table('products', function (Blueprint $table) {
+            //
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('ingredient_batches', function (Blueprint $table) {
-            $table->dropForeign('ib_owner_fk');
+        Schema::table('products', function (Blueprint $table) {
+            //
         });
     }
 };

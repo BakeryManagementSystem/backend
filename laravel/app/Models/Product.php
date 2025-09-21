@@ -5,13 +5,22 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 
 class Product extends Model
 {
     use HasFactory;
 
     protected $table = 'products';
-    public $timestamps = false;
+
+    // Dynamically check if timestamp columns exist
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+
+        // Only enable timestamps if the columns exist in the database
+        $this->timestamps = Schema::hasColumns('products', ['created_at', 'updated_at']);
+    }
 
     protected $fillable = [
         'owner_id',
@@ -33,10 +42,6 @@ class Product extends Model
         'meta_description',
         'image_path',
         'images'
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
     ];
 
     protected $casts = [
@@ -49,23 +54,6 @@ class Product extends Model
         'ingredients' => 'array',
         'allergens' => 'array',
         'images' => 'array'
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
-    ];
-
-    protected $casts = [
-        'price' => 'decimal:2',
-        'discount_price' => 'decimal:2',
-        'weight' => 'decimal:2',
-        'stock_quantity' => 'integer',
-        'category_id' => 'integer',
-        'is_featured' => 'boolean',
-        'ingredients' => 'array',
-        'allergens' => 'array',
-        'images' => 'array'
-=======
->>>>>>> Stashed changes
     ];
 
     protected $appends = ['image_url', 'image_urls'];
@@ -99,5 +87,10 @@ class Product extends Model
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function wishlistItems()
+    {
+        return $this->hasMany(Wishlist::class);
     }
 }

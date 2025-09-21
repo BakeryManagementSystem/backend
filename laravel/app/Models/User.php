@@ -6,12 +6,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\Schema;
+
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    // Disable created_at / updated_at auto columns
-    public $timestamps = false;
+    // Dynamically check if timestamp columns exist
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+
+        // Only enable timestamps if the columns exist in the database
+        $this->timestamps = Schema::hasColumns('users', ['created_at', 'updated_at']);
+    }
 
     protected $fillable = [
         'name',
