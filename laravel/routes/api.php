@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\CartController as ApiCartController;
 use App\Http\Controllers\Api\OrderController as ApiOrderController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\TestController;
+use App\Http\Controllers\Api\AIController;
 use App\Models\Product;
 
 Route::middleware('auth:sanctum')->get('/user', fn (Request $r) => $r->user());
@@ -28,6 +29,11 @@ Route::get('/categories/{id}', [CategoryController::class, 'show']);
 Route::get('/test/products', [TestController::class, 'testProducts']); // Test endpoint
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()]));
 Route::get('/shops/{owner}', [ProfileController::class, 'publicShop']); // public
+
+// AI Assistant routes (public - can work for both logged in and guest users)
+Route::get('/ai/context', [AIController::class, 'getContextData']);
+Route::get('/ai/products', [AIController::class, 'getProducts']);
+Route::get('/ai/categories', [AIController::class, 'getCategories']);
 
 // Notifications route (for frontend)
 Route::middleware('auth:sanctum')->get('/notifications', function () {
@@ -164,6 +170,11 @@ Route::middleware('auth:sanctum')->group(function () {
             ],
         ]);
     });
+
+    // AI Assistant protected routes (user-specific data)
+    Route::get('/user/profile', [AIController::class, 'getUserProfile']);
+    Route::get('/user/orders', [AIController::class, 'getUserOrders']);
+    Route::get('/user/balance', [AIController::class, 'getUserBalance']);
 });
 
 // Legacy routes (keeping for backward compatibility)
