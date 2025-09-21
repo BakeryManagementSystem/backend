@@ -30,9 +30,8 @@ class AIController extends Controller
             ];
 
             // Get products with basic information
-            $products = Product::select('id', 'name', 'price', 'description', 'category_id', 'stock_quantity')
-                ->where('is_active', true)
-                ->with('category:id,name')
+            $products = Product::select('id', 'name', 'price', 'description', 'category', 'stock_quantity')
+                ->where('status', 'active')
                 ->limit(50)
                 ->get();
 
@@ -42,13 +41,21 @@ class AIController extends Controller
                     'name' => $product->name,
                     'price' => $product->price,
                     'description' => $product->description,
-                    'category' => $product->category ? $product->category->name : null,
+                    'category' => $product->category,
                     'in_stock' => $product->stock_quantity > 0
                 ];
             });
 
-            // Get categories
-            $categories = Category::select('id', 'name', 'description')->get();
+            // Get categories - use distinct categories from products
+            $categories = Product::select('category')
+                ->distinct()
+                ->whereNotNull('category')
+                ->where('category', '!=', '')
+                ->get()
+                ->pluck('category')
+                ->map(function ($category) {
+                    return ['name' => $category];
+                });
             $context['categories'] = $categories;
 
             // If user is authenticated, add user-specific data
@@ -62,12 +69,24 @@ class AIController extends Controller
                     'created_at' => $user->created_at
                 ];
 
-                // Get user's recent orders
-                $orders = Order::where('user_id', $user->id)
+                // Get user's orders based on their type
+                if ($user->user_type === 'buyer') {
+                    // For buyers: get orders they placed
+                    $orders = Order::where('buyer_id', $user->id)
+                        ->select('id', 'total_amount', 'status', 'created_at')
+                        ->orderBy('created_at', 'desc')
+                        ->limit(10)
+                        ->get();
+                } else {
+                    // For sellers: get orders containing their products
+                    $orders = Order::whereHas('orderItems', function($query) use ($user) {
+                        $query->where('owner_id', $user->id);
+                    })
                     ->select('id', 'total_amount', 'status', 'created_at')
                     ->orderBy('created_at', 'desc')
                     ->limit(10)
                     ->get();
+                }
 
                 $context['orders'] = $orders->map(function ($order) {
                     return [
@@ -78,12 +97,27 @@ class AIController extends Controller
                     ];
                 });
 
-                // Add account balance or credit info if available
-                $context['balance'] = [
-                    'total_orders' => $orders->count(),
-                    'total_spent' => $orders->sum('total_amount'),
-                    'last_order_date' => $orders->first() ? $orders->first()->created_at->format('Y-m-d') : null
-                ];
+                // Add account balance with all orders for accurate totals
+                if ($user->user_type === 'buyer') {
+                    $allOrders = Order::where('buyer_id', $user->id)->get();
+                    $context['balance'] = [
+                        'total_orders' => $allOrders->count(),
+                        'total_spent' => $allOrders->sum('total_amount'),
+                        'last_order_date' => $allOrders->sortByDesc('created_at')->first() ? $allOrders->sortByDesc('created_at')->first()->created_at->format('Y-m-d') : null
+                    ];
+                } else {
+                    // For sellers: calculate sales from their order items
+                    $sellerOrderItems = \App\Models\OrderItem::where('owner_id', $user->id)->get();
+                    $sellerOrders = Order::whereHas('orderItems', function($query) use ($user) {
+                        $query->where('owner_id', $user->id);
+                    })->get();
+
+                    $context['balance'] = [
+                        'total_orders' => $sellerOrders->count(),
+                        'total_earned' => $sellerOrderItems->sum('line_total'),
+                        'last_order_date' => $sellerOrders->sortByDesc('created_at')->first() ? $sellerOrders->sortByDesc('created_at')->first()->created_at->format('Y-m-d') : null
+                    ];
+                }
             }
 
             return response()->json([
@@ -106,9 +140,8 @@ class AIController extends Controller
     public function getProducts(Request $request)
     {
         try {
-            $query = Product::select('id', 'name', 'price', 'description', 'category_id', 'stock_quantity', 'image_url')
-                ->where('is_active', true)
-                ->with('category:id,name');
+            $query = Product::select('id', 'name', 'price', 'description', 'category', 'stock_quantity', 'image_path')
+                ->where('status', 'active');
 
             // Apply search if provided
             if ($request->has('search')) {
@@ -120,8 +153,8 @@ class AIController extends Controller
             }
 
             // Apply category filter if provided
-            if ($request->has('category_id')) {
-                $query->where('category_id', $request->get('category_id'));
+            if ($request->has('category')) {
+                $query->where('category', $request->get('category'));
             }
 
             $products = $query->limit(20)->get();
@@ -146,9 +179,19 @@ class AIController extends Controller
     public function getCategories()
     {
         try {
-            $categories = Category::select('id', 'name', 'description')
-                ->withCount('products')
-                ->get();
+            // Get distinct categories from products table
+            $categories = Product::select('category')
+                ->distinct()
+                ->whereNotNull('category')
+                ->where('category', '!=', '')
+                ->get()
+                ->map(function ($product, $index) {
+                    return [
+                        'id' => $index + 1,
+                        'name' => $product->category,
+                        'products_count' => Product::where('category', $product->category)->count()
+                    ];
+                });
 
             return response()->json([
                 'success' => true,
@@ -215,26 +258,41 @@ class AIController extends Controller
             }
 
             $user = Auth::user();
-            $orders = Order::where('user_id', $user->id)
-                ->select('id', 'total_amount', 'status', 'created_at', 'delivery_address')
+
+            if ($user->user_type === 'buyer') {
+                // For buyers: get orders they placed
+                $orders = Order::where('buyer_id', $user->id)
+                    ->select('id', 'total_amount', 'status', 'created_at')
+                    ->orderBy('created_at', 'desc')
+                    ->with('orderItems')
+                    ->limit(20)
+                    ->get();
+            } else {
+                // For sellers: get orders containing their products
+                $orders = Order::whereHas('orderItems', function($query) use ($user) {
+                    $query->where('owner_id', $user->id);
+                })
+                ->select('id', 'total_amount', 'status', 'created_at')
                 ->orderBy('created_at', 'desc')
-                ->with('orderItems.product:id,name,price')
+                ->with(['orderItems' => function($query) use ($user) {
+                    $query->where('owner_id', $user->id);
+                }])
                 ->limit(20)
                 ->get();
+            }
 
-            $formattedOrders = $orders->map(function ($order) {
+            $formattedOrders = $orders->map(function ($order) use ($user) {
                 return [
                     'id' => $order->id,
-                    'total' => $order->total_amount,
+                    'total' => $user->user_type === 'buyer' ? $order->total_amount : $order->orderItems->sum('line_total'),
                     'status' => $order->status,
                     'date' => $order->created_at->format('Y-m-d H:i:s'),
-                    'delivery_address' => $order->delivery_address,
                     'items_count' => $order->orderItems ? $order->orderItems->count() : 0,
                     'items' => $order->orderItems ? $order->orderItems->map(function ($item) {
                         return [
-                            'product_name' => $item->product ? $item->product->name : 'Unknown',
+                            'product_name' => $item->product_name ?? 'Unknown',
                             'quantity' => $item->quantity,
-                            'price' => $item->price
+                            'price' => $item->unit_price
                         ];
                     }) : []
                 ];
@@ -268,16 +326,34 @@ class AIController extends Controller
             }
 
             $user = Auth::user();
-            $orders = Order::where('user_id', $user->id)->get();
 
-            $balance = [
-                'total_orders' => $orders->count(),
-                'total_spent' => $orders->sum('total_amount'),
-                'pending_orders' => $orders->where('status', 'pending')->count(),
-                'completed_orders' => $orders->where('status', 'delivered')->count(),
-                'last_order_date' => $orders->sortByDesc('created_at')->first()?->created_at?->format('Y-m-d'),
-                'average_order_value' => $orders->count() > 0 ? round($orders->sum('total_amount') / $orders->count(), 2) : 0
-            ];
+            if ($user->user_type === 'buyer') {
+                // For buyers: calculate spending
+                $orders = Order::where('buyer_id', $user->id)->get();
+                $balance = [
+                    'total_orders' => $orders->count(),
+                    'total_spent' => $orders->sum('total_amount'),
+                    'pending_orders' => $orders->where('status', 'pending')->count(),
+                    'completed_orders' => $orders->where('status', 'completed')->count(),
+                    'last_order_date' => $orders->sortByDesc('created_at')->first()?->created_at?->format('Y-m-d'),
+                    'average_order_value' => $orders->count() > 0 ? round($orders->sum('total_amount') / $orders->count(), 2) : 0
+                ];
+            } else {
+                // For sellers: calculate earnings from their products
+                $sellerOrderItems = \App\Models\OrderItem::where('owner_id', $user->id)->get();
+                $sellerOrders = Order::whereHas('orderItems', function($query) use ($user) {
+                    $query->where('owner_id', $user->id);
+                })->get();
+
+                $balance = [
+                    'total_orders' => $sellerOrders->count(),
+                    'total_earned' => $sellerOrderItems->sum('line_total'),
+                    'pending_orders' => $sellerOrders->where('status', 'pending')->count(),
+                    'completed_orders' => $sellerOrders->where('status', 'completed')->count(),
+                    'last_order_date' => $sellerOrders->sortByDesc('created_at')->first()?->created_at?->format('Y-m-d'),
+                    'average_order_value' => $sellerOrders->count() > 0 ? round($sellerOrderItems->sum('line_total') / $sellerOrders->count(), 2) : 0
+                ];
+            }
 
             return response()->json([
                 'success' => true,

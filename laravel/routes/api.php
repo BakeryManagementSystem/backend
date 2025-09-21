@@ -172,6 +172,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // AI Assistant protected routes (user-specific data)
+    Route::get('/ai/profile', [AIController::class, 'getUserProfile']);
     Route::get('/user/orders', [AIController::class, 'getUserOrders']);
     Route::get('/user/balance', [AIController::class, 'getUserBalance']);
 });
