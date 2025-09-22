@@ -50,31 +50,34 @@ class ShopController extends Controller
         );
 
         return response()->json([
-            'name' => $shop->shop_name,
-            'description' => $shop->description ?? '',
-            'logo' => $shop->logo_path ? Storage::url($shop->logo_path) : null,
-            'banner' => $shop->banner_path ? Storage::url($shop->banner_path) : null,
-            'theme' => $shop->theme ? json_decode($shop->theme, true) : [
-                'primaryColor' => '#2563eb',
-                'secondaryColor' => '#64748b',
-                'accentColor' => '#f59e0b'
-            ],
-            'policies' => $shop->policies ? json_decode($shop->policies, true) : [
-                'shipping' => '',
-                'returns' => '',
-                'exchange' => ''
-            ],
-            'social' => $shop->social ? json_decode($shop->social, true) : [
-                'website' => '',
-                'facebook' => '',
-                'twitter' => '',
-                'instagram' => ''
-            ],
-            'settings' => $shop->settings ? json_decode($shop->settings, true) : [
-                'showContactInfo' => true,
-                'showReviews' => true,
-                'allowMessages' => true,
-                'featuredProducts' => []
+            'success' => true,
+            'data' => [
+                'name' => $shop->shop_name,
+                'description' => $shop->description ?? '',
+                'logo' => $shop->logo_path ? Storage::url($shop->logo_path) : null,
+                'banner' => $shop->banner_path ? Storage::url($shop->banner_path) : null,
+                'theme' => $shop->theme ? json_decode($shop->theme, true) : [
+                    'primaryColor' => '#2563eb',
+                    'secondaryColor' => '#64748b',
+                    'accentColor' => '#f59e0b'
+                ],
+                'policies' => $shop->policies ? json_decode($shop->policies, true) : [
+                    'shipping' => '',
+                    'returns' => '',
+                    'exchange' => ''
+                ],
+                'social' => $shop->social ? json_decode($shop->social, true) : [
+                    'website' => '',
+                    'facebook' => '',
+                    'twitter' => '',
+                    'instagram' => ''
+                ],
+                'settings' => $shop->settings ? json_decode($shop->settings, true) : [
+                    'showContactInfo' => true,
+                    'showReviews' => true,
+                    'allowMessages' => true,
+                    'featuredProducts' => []
+                ]
             ]
         ]);
     }
@@ -91,24 +94,39 @@ class ShopController extends Controller
             'description' => 'required|string|min:50|max:500',
             'logo' => 'nullable|string',
             'banner' => 'nullable|string',
+            // Handle both nested and flat data formats
             'theme' => 'nullable|array',
             'theme.primaryColor' => 'nullable|string',
             'theme.secondaryColor' => 'nullable|string',
             'theme.accentColor' => 'nullable|string',
+            'primary_color' => 'nullable|string',
+            'secondary_color' => 'nullable|string',
+            'accent_color' => 'nullable|string',
             'policies' => 'nullable|array',
             'policies.shipping' => 'nullable|string',
             'policies.returns' => 'nullable|string',
             'policies.exchange' => 'nullable|string',
+            'shipping_policy' => 'nullable|string',
+            'return_policy' => 'nullable|string',
+            'exchange_policy' => 'nullable|string',
             'social' => 'nullable|array',
             'social.website' => 'nullable|url',
             'social.facebook' => 'nullable|string',
             'social.twitter' => 'nullable|string',
             'social.instagram' => 'nullable|string',
+            'website' => 'nullable|url',
+            'facebook' => 'nullable|string',
+            'twitter' => 'nullable|string',
+            'instagram' => 'nullable|string',
             'settings' => 'nullable|array',
             'settings.showContactInfo' => 'nullable|boolean',
             'settings.showReviews' => 'nullable|boolean',
             'settings.allowMessages' => 'nullable|boolean',
-            'settings.featuredProducts' => 'nullable|array'
+            'settings.featuredProducts' => 'nullable|array',
+            'show_contact_info' => 'nullable|boolean',
+            'show_reviews' => 'nullable|boolean',
+            'allow_messages' => 'nullable|boolean',
+            'featured_products' => 'nullable|array'
         ]);
 
         $shop = ShopProfile::firstOrCreate(
@@ -119,27 +137,71 @@ class ShopController extends Controller
         $shop->shop_name = $data['name'];
         $shop->description = $data['description'];
 
+        // Handle theme data (both nested and flat formats)
         if (isset($data['theme'])) {
             $shop->theme = json_encode($data['theme']);
+        } else {
+            $themeData = [
+                'primaryColor' => $data['primary_color'] ?? '#2563eb',
+                'secondaryColor' => $data['secondary_color'] ?? '#64748b',
+                'accentColor' => $data['accent_color'] ?? '#f59e0b'
+            ];
+            $shop->theme = json_encode($themeData);
         }
 
+        // Handle policies data (both nested and flat formats)
         if (isset($data['policies'])) {
             $shop->policies = json_encode($data['policies']);
+        } else {
+            $policiesData = [
+                'shipping' => $data['shipping_policy'] ?? '',
+                'returns' => $data['return_policy'] ?? '',
+                'exchange' => $data['exchange_policy'] ?? ''
+            ];
+            $shop->policies = json_encode($policiesData);
         }
 
+        // Handle social data (both nested and flat formats)
         if (isset($data['social'])) {
             $shop->social = json_encode($data['social']);
+        } else {
+            $socialData = [
+                'website' => $data['website'] ?? '',
+                'facebook' => $data['facebook'] ?? '',
+                'twitter' => $data['twitter'] ?? '',
+                'instagram' => $data['instagram'] ?? ''
+            ];
+            $shop->social = json_encode($socialData);
         }
 
+        // Handle settings data (both nested and flat formats)
         if (isset($data['settings'])) {
             $shop->settings = json_encode($data['settings']);
+        } else {
+            $settingsData = [
+                'showContactInfo' => $data['show_contact_info'] ?? true,
+                'showReviews' => $data['show_reviews'] ?? true,
+                'allowMessages' => $data['allow_messages'] ?? true,
+                'featuredProducts' => $data['featured_products'] ?? []
+            ];
+            $shop->settings = json_encode($settingsData);
         }
 
         $shop->save();
 
         return response()->json([
+            'success' => true,
             'message' => 'Shop updated successfully',
-            'shop' => $shop
+            'data' => [
+                'name' => $shop->shop_name,
+                'description' => $shop->description,
+                'logo' => $shop->logo_path ? Storage::url($shop->logo_path) : null,
+                'banner' => $shop->banner_path ? Storage::url($shop->banner_path) : null,
+                'theme' => $shop->theme ? json_decode($shop->theme, true) : null,
+                'policies' => $shop->policies ? json_decode($shop->policies, true) : null,
+                'social' => $shop->social ? json_decode($shop->social, true) : null,
+                'settings' => $shop->settings ? json_decode($shop->settings, true) : null
+            ]
         ]);
     }
 
@@ -173,12 +235,15 @@ class ShopController extends Controller
         $totalFollowers = max(0, $totalSales * 0.1); // Estimate based on sales
 
         return response()->json([
-            'totalProducts' => $totalProducts,
-            'totalViews' => (int) $totalViews,
-            'totalFollowers' => (int) $totalFollowers,
-            'averageRating' => round($averageRating, 1),
-            'totalSales' => $totalSales,
-            'monthlyRevenue' => round($monthlyRevenue, 2)
+            'success' => true,
+            'data' => [
+                'total_products' => $totalProducts,
+                'total_views' => (int) $totalViews,
+                'total_followers' => (int) $totalFollowers,
+                'average_rating' => round($averageRating, 1),
+                'total_sales' => $totalSales,
+                'monthly_revenue' => round($monthlyRevenue, 2)
+            ]
         ]);
     }
 
@@ -223,8 +288,53 @@ class ShopController extends Controller
         $shop->save();
 
         return response()->json([
+            'success' => true,
             'message' => ucfirst($type) . ' uploaded successfully',
-            'url' => Storage::url($path)
+            'data' => [
+                'url' => Storage::url($path)
+            ]
+        ]);
+    }
+
+    /**
+     * Remove shop images (logo/banner)
+     */
+    public function removeImage(Request $request, $type)
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'type' => 'in:logo,banner'
+        ]);
+
+        if (!in_array($type, ['logo', 'banner'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid image type'
+            ], 400);
+        }
+
+        // Get shop profile
+        $shop = ShopProfile::firstOrCreate(
+            ['owner_id' => $user->id],
+            ['shop_name' => $user->name . "'s Shop"]
+        );
+
+        $fieldName = $type === 'logo' ? 'logo_path' : 'banner_path';
+        $oldPath = $shop->$fieldName;
+
+        // Delete old image if exists
+        if ($oldPath) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        // Clear the field
+        $shop->$fieldName = null;
+        $shop->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => ucfirst($type) . ' removed successfully'
         ]);
     }
 }

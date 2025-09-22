@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderIngredientCost;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SellerOrderController extends Controller
 {
@@ -94,7 +96,7 @@ class SellerOrderController extends Controller
         $user = $request->user();
 
         $request->validate([
-            'status' => 'required|in:pending,processing,shipped,delivered,cancelled'
+            'status' => 'required|in:pending,processing,shipped,delivered,completed,cancelled'
         ]);
 
         $order = Order::whereHas('orderItems', function($q) use ($user) {
@@ -106,6 +108,11 @@ class SellerOrderController extends Controller
 
         $order->status = $newStatus;
         $order->save();
+
+        // Handle financial tracking when order is delivered
+        if ($newStatus === 'delivered' && $oldStatus !== 'delivered') {
+            $this->updateRevenueTracking($order, $user);
+        }
 
         // Create notification for buyer when status changes
         if ($oldStatus !== $newStatus && $order->buyer) {
@@ -125,6 +132,92 @@ class SellerOrderController extends Controller
                 'updated_at' => $order->updated_at->format('Y-m-d H:i:s')
             ]
         ]);
+    }
+
+    /**
+     * Update revenue tracking when order is delivered
+     */
+    private function updateRevenueTracking($order, $seller)
+    {
+        // Calculate total revenue for this seller from this order
+        $sellerRevenue = $order->orderItems()
+            ->where('owner_id', $seller->id)
+            ->sum('line_total');
+
+        // Log the revenue update for debugging
+        \Log::info("Revenue update for seller {$seller->id}: Order {$order->id} delivered with revenue: {$sellerRevenue}");
+
+        // Calculate and record ingredient costs for this order
+        $this->recordIngredientInvestment($order, $seller);
+
+        // Update product sales counts
+        $order->orderItems()->where('owner_id', $seller->id)->each(function($item) {
+            $product = $item->product;
+            if ($product) {
+                // Decrease stock quantity if tracking is enabled
+                if ($product->stock_quantity > 0) {
+                    $product->decrement('stock_quantity', $item->quantity);
+                }
+            }
+        });
+    }
+
+    /**
+     * Record ingredient investment costs when order is delivered
+     */
+    private function recordIngredientInvestment($order, $seller)
+    {
+        \Log::info("Starting ingredient investment recording for Order {$order->id}, Seller {$seller->id}");
+
+        $order->orderItems()->where('owner_id', $seller->id)->each(function($item) use ($order, $seller) {
+            $product = $item->product;
+            if ($product) {
+                // Calculate ingredient cost per unit for this product
+                $ingredientCostPerUnit = $this->calculateIngredientCostPerUnit($product);
+                $totalIngredientCost = $ingredientCostPerUnit * $item->quantity;
+
+                \Log::info("Processing product: {$product->name}, Price: {$product->price}, Quantity: {$item->quantity}, Cost per unit: {$ingredientCostPerUnit}, Total cost: {$totalIngredientCost}");
+
+                try {
+                    // Record the ingredient investment for this order
+                    $ingredientCost = OrderIngredientCost::create([
+                        'order_id' => $order->id,
+                        'owner_id' => $seller->id,
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'quantity_sold' => $item->quantity,
+                        'ingredient_cost_per_unit' => $ingredientCostPerUnit,
+                        'total_ingredient_cost' => $totalIngredientCost
+                    ]);
+
+                    \Log::info("Ingredient investment successfully recorded with ID: {$ingredientCost->id}");
+                } catch (\Exception $e) {
+                    \Log::error("Failed to record ingredient investment: " . $e->getMessage());
+                    \Log::error("Stack trace: " . $e->getTraceAsString());
+                }
+            } else {
+                \Log::warning("Product not found for order item ID: {$item->id}");
+            }
+        });
+
+        \Log::info("Finished ingredient investment recording for Order {$order->id}");
+    }
+
+    /**
+     * Calculate ingredient cost per unit for a product
+     * This is a simplified calculation - you can enhance this based on your business logic
+     */
+    private function calculateIngredientCostPerUnit($product)
+    {
+        // Option 1: Use a fixed percentage of the product price (e.g., 30% of selling price)
+        $costPercentage = 0.30; // 30% of selling price
+        $estimatedCost = $product->price * $costPercentage;
+
+        // Option 2: If you have actual ingredient data, you can calculate real costs
+        // This would require a more complex system linking products to ingredients
+
+        // For now, using the percentage method as a reasonable estimate
+        return round($estimatedCost, 2);
     }
 
     /**
@@ -160,6 +253,34 @@ class SellerOrderController extends Controller
             'processing' => $processingOrders,
             'shipped' => $shippedOrders,
             'delivered' => $deliveredOrders
+        ]);
+    }
+
+    /**
+     * Test endpoint to manually record ingredient costs for debugging
+     */
+    public function testIngredientRecording(Request $request, $orderId)
+    {
+        $user = $request->user();
+
+        $order = Order::whereHas('orderItems', function($q) use ($user) {
+            $q->where('owner_id', $user->id);
+        })->with('orderItems.product')->findOrFail($orderId);
+
+        \Log::info("Manual test - recording ingredient costs for Order {$orderId}");
+
+        $this->recordIngredientInvestment($order, $user);
+
+        // Check if records were created
+        $recordsCount = OrderIngredientCost::where('order_id', $orderId)->where('owner_id', $user->id)->count();
+        $totalCost = OrderIngredientCost::where('order_id', $orderId)->where('owner_id', $user->id)->sum('total_ingredient_cost');
+
+        return response()->json([
+            'message' => 'Test completed',
+            'order_id' => $orderId,
+            'records_created' => $recordsCount,
+            'total_cost_recorded' => $totalCost,
+            'check_logs' => 'Check Laravel logs for detailed information'
         ]);
     }
 }

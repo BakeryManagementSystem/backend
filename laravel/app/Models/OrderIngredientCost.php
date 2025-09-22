@@ -1,0 +1,42 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class OrderIngredientCost extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'order_id',
+        'owner_id',
+        'product_id',
+        'product_name',
+        'quantity_sold',
+        'ingredient_cost_per_unit',
+        'total_ingredient_cost'
+    ];
+
+    protected $casts = [
+        'ingredient_cost_per_unit' => 'decimal:2',
+        'total_ingredient_cost' => 'decimal:2',
+        'quantity_sold' => 'integer'
+    ];
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
+}

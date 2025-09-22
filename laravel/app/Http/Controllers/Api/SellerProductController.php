@@ -122,7 +122,28 @@ class SellerProductController extends Controller
     {
         $product = Product::where('owner_id', Auth::id())->findOrFail($id);
 
-        return response()->json($product);
+        return response()->json([
+            'success' => true,
+            'product' => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'description' => $product->description,
+                'price' => (float) $product->price,
+                'discount_price' => (float) ($product->discount_price ?? 0),
+                'category' => $product->category,
+                'stock_quantity' => (int) $product->stock_quantity,
+                'sku' => $product->sku,
+                'weight' => (float) ($product->weight ?? 0),
+                'status' => $product->status ?? 'active',
+                'is_featured' => (bool) ($product->is_featured ?? false),
+                'image_path' => $product->image_path,
+                'image_url' => $product->image_url ?? $product->image_path,
+                'images' => $product->images ?? [],
+                'owner_id' => $product->owner_id,
+                'created_at' => $product->created_at,
+                'updated_at' => $product->updated_at
+            ]
+        ]);
     }
 
     /**
@@ -150,6 +171,7 @@ class SellerProductController extends Controller
         $product->update($request->all());
 
         return response()->json([
+            'success' => true,
             'message' => 'Product updated successfully',
             'product' => $product
         ]);

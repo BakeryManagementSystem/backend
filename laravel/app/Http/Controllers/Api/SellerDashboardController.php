@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\IngredientBatch;
+use App\Models\IngredientBatchItem;
+use App\Models\OrderIngredientCost;
 use Illuminate\Support\Facades\DB;
 
 class SellerDashboardController extends Controller
@@ -18,8 +21,12 @@ class SellerDashboardController extends Controller
     {
         $user = $request->user();
 
+        \Log::info("=== SELLER DASHBOARD REQUEST START ===");
+        \Log::info("User ID: {$user->id}, Name: {$user->name}");
+
         // Get basic stats
         $totalProducts = Product::where('owner_id', $user->id)->count();
+        \Log::info("Total products for user {$user->id}: {$totalProducts}");
 
         // Get orders for this seller's products
         $sellerOrders = Order::whereHas('orderItems', function($query) use ($user) {
@@ -28,15 +35,58 @@ class SellerDashboardController extends Controller
 
         $totalOrders = $sellerOrders->count();
         $pendingOrders = $sellerOrders->where('status', 'pending')->count();
+        \Log::info("Total orders: {$totalOrders}, Pending: {$pendingOrders}");
 
         // Calculate total revenue
         $totalRevenue = OrderItem::where('owner_id', $user->id)
             ->whereHas('order', function($query) {
                 $query->whereIn('status', ['delivered', 'shipped']);
             })->sum('line_total');
+        \Log::info("Total revenue calculation: {$totalRevenue}");
 
         // Get average rating (placeholder since products don't have rating field)
         $averageRating = 4.5; // Default value since rating field doesn't exist
+
+        // Calculate ingredient investment/costs (including both manual batches and order-based costs)
+        $manualIngredientInvestment = IngredientBatch::where('owner_id', $user->id)
+            ->sum('total_cost');
+        \Log::info("Manual ingredient investment: {$manualIngredientInvestment}");
+
+        // Check if OrderIngredientCost records exist
+        $orderCostRecords = OrderIngredientCost::where('owner_id', $user->id)->get();
+        \Log::info("OrderIngredientCost records found: " . $orderCostRecords->count());
+
+        foreach ($orderCostRecords as $record) {
+            \Log::info("Record ID: {$record->id}, Order: {$record->order_id}, Product: {$record->product_name}, Cost: {$record->total_ingredient_cost}");
+        }
+
+        $orderBasedIngredientCosts = OrderIngredientCost::where('owner_id', $user->id)
+            ->sum('total_ingredient_cost');
+
+        \Log::info("Dashboard investment calculation for user {$user->id}: Manual batches: {$manualIngredientInvestment}, Order-based: {$orderBasedIngredientCosts}");
+
+        $totalIngredientInvestment = $manualIngredientInvestment + $orderBasedIngredientCosts;
+        \Log::info("Total investment: {$totalIngredientInvestment}");
+
+        $monthlyIngredientCost = IngredientBatch::where('owner_id', $user->id)
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('total_cost');
+
+        $monthlyOrderBasedCosts = OrderIngredientCost::where('owner_id', $user->id)
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('total_ingredient_cost');
+
+        $monthlyIngredientCost += $monthlyOrderBasedCosts;
+
+        // Get low stock items count (using correct column names)
+        $lowStockItems = Product::where('owner_id', $user->id)
+            ->where(function($query) {
+                $query->where('stock_quantity', '<', 10)
+                      ->orWhere('status', '!=', 'active');
+            })
+            ->count();
 
         // Get recent orders
         $recentOrders = Order::whereHas('orderItems', function($query) use ($user) {
@@ -111,7 +161,10 @@ class SellerDashboardController extends Controller
                 'totalOrders' => $totalOrders,
                 'pendingOrders' => $pendingOrders,
                 'totalRevenue' => (float) $totalRevenue,
-                'averageRating' => $averageRating
+                'averageRating' => $averageRating,
+                'totalIngredientInvestment' => (float) $totalIngredientInvestment,
+                'monthlyIngredientCost' => (float) $monthlyIngredientCost,
+                'lowStockItems' => $lowStockItems
             ],
             'recentOrders' => $recentOrders,
             'topProducts' => $topProducts,

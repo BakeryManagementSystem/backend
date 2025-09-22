@@ -80,12 +80,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/seller/orders', [\App\Http\Controllers\Api\SellerOrderController::class, 'index']);
     Route::patch('/seller/orders/{orderId}', [\App\Http\Controllers\Api\SellerOrderController::class, 'updateStatus']);
     Route::get('/seller/orders/stats', [\App\Http\Controllers\Api\SellerOrderController::class, 'getStats']);
+    Route::post('/seller/orders/{orderId}/test-ingredient-recording', [\App\Http\Controllers\Api\SellerOrderController::class, 'testIngredientRecording']);
 
     // Seller Products Management (NEW)
     Route::get('/seller/products', [\App\Http\Controllers\Api\SellerProductController::class, 'index']);
     Route::post('/seller/products', [\App\Http\Controllers\Api\SellerProductController::class, 'store']);
     Route::get('/seller/products/{id}', [\App\Http\Controllers\Api\SellerProductController::class, 'show']);
     Route::put('/seller/products/{id}', [\App\Http\Controllers\Api\SellerProductController::class, 'update']);
+    Route::post('/seller/products/{id}', [\App\Http\Controllers\Api\SellerProductController::class, 'update']); // For FormData with _method=PUT
     Route::delete('/seller/products/{id}', [\App\Http\Controllers\Api\SellerProductController::class, 'destroy']);
     Route::get('/seller/products/stats', [\App\Http\Controllers\Api\SellerProductController::class, 'getStats']);
 
@@ -99,6 +101,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/owner/shop', [\App\Http\Controllers\Api\ShopController::class, 'updateShop']);
     Route::get('/owner/shop/stats', [\App\Http\Controllers\Api\ShopController::class, 'getShopStats']);
     Route::post('/owner/shop/upload', [\App\Http\Controllers\Api\ShopController::class, 'uploadImage']);
+    Route::delete('/owner/shop/remove/{type}', [\App\Http\Controllers\Api\ShopController::class, 'removeImage']);
 
     // User Profile routes
     Route::get('/user/profile', [\App\Http\Controllers\Api\UserProfileController::class, 'show']);
@@ -131,6 +134,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/owner/profit/category', [ReportController::class, 'profitByCategory']);
     Route::get('/owner/profit/summary', [ReportController::class, 'profitSummary']);
     Route::get('/owner/dashboard', [ReportController::class, 'dashboard']);
+
+    // PDF Generation Routes
+    Route::get('/orders/{orderId}/invoice', [\App\Http\Controllers\Api\InvoiceController::class, 'generateInvoice']);
+    Route::get('/orders/{orderId}/invoice/preview', [\App\Http\Controllers\Api\InvoiceController::class, 'previewInvoice']);
+    Route::get('/analytics/export', [\App\Http\Controllers\Api\AnalyticsExportController::class, 'exportAnalytics']);
+    Route::get('/analytics/export/preview', [\App\Http\Controllers\Api\AnalyticsExportController::class, 'previewAnalytics']);
 
     // Owner sales
     Route::get('/owner/purchases', [OrderController::class, 'ownerPurchases']);
