@@ -63,7 +63,11 @@ class Product extends Model
         if (!$this->image_path) {
             return null;
         }
-        return url(Storage::url($this->image_path));
+
+        // If it's already a URL, return as-is, otherwise prepend storage URL
+        return str_starts_with($this->image_path, 'http')
+            ? $this->image_path
+            : url(Storage::url($this->image_path));
     }
 
     public function getImageUrlsAttribute(): array
@@ -71,7 +75,13 @@ class Product extends Model
         if (!$this->images || !is_array($this->images)) {
             return [];
         }
-        return array_map(fn($path) => url(Storage::url($path)), $this->images);
+
+        return array_map(function($path) {
+            // If it's already a URL, return as-is, otherwise prepend storage URL
+            return str_starts_with($path, 'http')
+                ? $path
+                : url(Storage::url($path));
+        }, $this->images);
     }
 
     public function owner()

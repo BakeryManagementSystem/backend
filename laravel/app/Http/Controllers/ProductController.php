@@ -100,6 +100,8 @@ class ProductController extends Controller
             'meta_description'=> ['nullable', 'string', 'max:500'],
             'images'          => ['nullable', 'array', 'max:5'],
             'images.*'        => ['image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
+            'image_urls'      => ['nullable', 'array', 'max:5'],
+            'image_urls.*'    => ['url'],
         ]);
 
         // Handle multiple image uploads
@@ -110,6 +112,17 @@ class ProductController extends Controller
                 $imagePaths[] = $path;
             }
         }
+
+        // Handle image URLs
+        $imageUrls = [];
+        if (!empty($data['image_urls'])) {
+            $imageUrls = array_filter($data['image_urls'], function($url) {
+                return filter_var($url, FILTER_VALIDATE_URL) !== false;
+            });
+        }
+
+        // Combine uploaded files and URLs for the images array
+        $allImages = array_merge($imagePaths, $imageUrls);
 
         // Parse JSON strings for ingredients and allergens
         $ingredients = [];
@@ -155,15 +168,24 @@ class ProductController extends Controller
             'ingredients'     => $ingredients,
             'allergens'       => $allergens,
             'status'          => $data['status'] ?? 'active',
-            'is_featured'     => $data['is_featured'] ?? false,
+            'is_featured'     => in_array($data['is_featured'] ?? false, [true, '1', 1]),
             'meta_title'      => $data['meta_title'] ?? null,
             'meta_description'=> $data['meta_description'] ?? null,
-            'image_path'      => !empty($imagePaths) ? $imagePaths[0] : null,
-            'images'          => $imagePaths,
+            'image_path'      => !empty($allImages) ? $allImages[0] : null,
+            'images'          => $allImages,
         ]);
 
         // Refresh the model to get the properly casted attributes
         $product->refresh();
+
+        // Transform images for response
+        $product->image_url = $product->image_path
+            ? (str_starts_with($product->image_path, 'http') ? $product->image_path : url('/storage/'.$product->image_path))
+            : null;
+
+        $product->image_urls = array_map(function($path) {
+            return str_starts_with($path, 'http') ? $path : url('/storage/' . $path);
+        }, $product->images ?? []);
 
         return response()->json([
             'message' => 'Product created successfully',
