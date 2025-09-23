@@ -37,7 +37,27 @@ class IngredientController extends Controller
 
     public function destroy(Ingredient $ingredient)
     {
-        $ingredient->delete();
-        return response()->json(['message'=>'Deleted']);
+
+        if (!$ingredient->canBeDeleted()) {
+            $batchItemsCount = $ingredient->getBatchItemsCount();
+            return response()->json([
+                'message' => "Cannot delete ingredient '{$ingredient->name}' because it is being used in {$batchItemsCount} batch item(s). Please remove the ingredient from all batches before deleting.",
+                'error' => 'CONSTRAINT_VIOLATION',
+                'details' => [
+                    'ingredient_name' => $ingredient->name,
+                    'batch_items_count' => $batchItemsCount
+                ]
+            ], 422);
+        }
+
+        try {
+            $ingredient->delete();
+            return response()->json(['message' => 'Ingredient deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to delete ingredient due to a database constraint.',
+                'error' => 'DELETE_FAILED'
+            ], 500);
+        }
     }
 }

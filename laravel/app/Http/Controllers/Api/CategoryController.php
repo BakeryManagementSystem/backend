@@ -4,12 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 
 class CategoryController extends Controller
 {
     public function index()
     {
-        // Return predefined categories for bakery
+        // Return predefined categories for bakery with actual product counts
         $categories = [
             [
                 'id' => 1,
@@ -49,7 +50,36 @@ class CategoryController extends Controller
             ]
         ];
 
+        // Add product counts for each category
+        foreach ($categories as &$category) {
+            $categoryName = $category['name'];
+
+            // Count products that match this category (case-insensitive)
+            $productCount = Product::whereRaw('LOWER(category) LIKE ?', ['%' . strtolower($this->getCategoryKeywords($categoryName)) . '%'])
+                ->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($this->getCategoryKeywords($categoryName)) . '%'])
+                ->count();
+
+            $category['products_count'] = $productCount;
+        }
+
         return response()->json($categories);
+    }
+
+    /**
+     * Get search keywords for category matching
+     */
+    private function getCategoryKeywords($categoryName)
+    {
+        $keywords = [
+            'Bread & Rolls' => 'bread',
+            'Pastries' => 'pastry',
+            'Cakes' => 'cake',
+            'Cookies' => 'cookie',
+            'Muffins & Cupcakes' => 'muffin',
+            'Specialty & Dietary' => 'specialty'
+        ];
+
+        return $keywords[$categoryName] ?? strtolower($categoryName);
     }
 
     public function show($id)

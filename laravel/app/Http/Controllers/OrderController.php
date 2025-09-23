@@ -17,11 +17,11 @@ class OrderController extends Controller
     {
         $buyerId = $request->user()->id;
 
-        // First try to get cart items from database
+
         $cart = CartItem::with('product')
             ->where('user_id', $buyerId)->get();
 
-        // If database cart is empty, check if cart items are provided in request
+
         if ($cart->isEmpty() && $request->has('items')) {
             // Validate the provided cart items
             $request->validate([
@@ -31,7 +31,7 @@ class OrderController extends Controller
                 'items.*.price' => 'required|numeric|min:0'
             ]);
 
-            // Create temporary cart items from the request
+
             $cart = collect($request->items)->map(function ($item) use ($buyerId) {
                 $product = \App\Models\Product::find($item['id']);
 

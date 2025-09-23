@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\DB;
 
 class IngredientBatchController extends Controller
 {
-    // GET /api/owner/ingredient-batches?category=Cakes&from=2025-09-01&to=2025-09-30
     public function index(Request $request)
     {
         $ownerId = $request->user()->id;
