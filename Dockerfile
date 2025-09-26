@@ -26,8 +26,8 @@ RUN a2enmod rewrite
 # Copy existing application directory contents
 COPY laravel/ /var/www/html/
 
-# Copy composer files from root if they exist
-COPY composer.json composer.lock* /var/www/html/
+# Copy composer files from laravel directory
+COPY laravel/composer.json laravel/composer.lock* /var/www/html/
 
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader || { cat /var/www/html/composer.log; exit 1; } \
