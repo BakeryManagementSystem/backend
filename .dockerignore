@@ -42,7 +42,3 @@ docs/
 # Tests
 tests/
 phpunit.xml
-
-# Development dependencies
-vendor/
-composer.lock
