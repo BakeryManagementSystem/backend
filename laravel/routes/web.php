@@ -21,3 +21,7 @@ Route::get('/', function () {
 Route::get('/login', function () {
     return response()->json(['message' => 'Please use the API login endpoint'], 401);
 })->name('login');
+
+Route::get('/health', function () {
+    return response()->json(['status' => 'ok']);
+});
