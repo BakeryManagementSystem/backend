@@ -30,7 +30,7 @@ COPY laravel/ /var/www/html/
 COPY laravel/composer.json laravel/composer.lock* /var/www/html/
 
 # Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader || { cat /var/www/html/composer.log; exit 1; } \
+RUN COMPOSER_MEMORY_LIMIT=-1 composer install --no-dev --optimize-autoloader \
     && if [ ! -d "/var/www/html/vendor" ]; then echo "Vendor directory missing after composer install"; exit 1; fi
 
 # Set proper permissions
