@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'health'],
+    'paths' => ['*'],
     'allowed_methods' => ['*'],
     'allowed_origins' => [
         'http://localhost:5174',                   // Local development
