@@ -14,19 +14,21 @@ return [
     |
     */
 
-    'paths' => ['*'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie'],
     'allowed_methods' => ['*'],
     'allowed_origins' => [
         'http://localhost:5174',                   // Local development
         'http://127.0.0.1:5174',
         'http://localhost:5173',
         'http://127.0.0.1:5173',
-        env('FRONTEND_URL', 'http://localhost:5173'), // Production frontend URL
-        'https://bms-rho-ten.vercel.app', // Added deployed Vercel frontend
+        'https://bms-rho-ten.vercel.app',         // Production Vercel frontend
+        'https://*.vercel.app',                    // All Vercel preview deployments
     ],
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '/^https:\/\/bms-.*\.vercel\.app$/',      // Match all BMS Vercel deployments
+    ],
     'allowed_headers' => ['*'],
-    'exposed_headers' => [],
-    'max_age' => 0,
-    'supports_credentials' => false,
+    'exposed_headers' => ['Content-Disposition'],
+    'max_age' => 86400,                            // Cache preflight for 24 hours
+    'supports_credentials' => true,                // Enable credentials for authenticated requests
 ];

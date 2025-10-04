@@ -3,7 +3,6 @@
 use Laravel\Sanctum\Sanctum;
 
 return [
-
     /*
     |--------------------------------------------------------------------------
     | Stateful Domains
@@ -21,7 +20,8 @@ return [
 //         Sanctum::currentApplicationUrlWithPort()
 //     ))),
 
-     'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', 'localhost,127.0.0.1,127.0.0.1:8000,::1,localhost:5173')),
+    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', 'localhost,127.0.0.1,127.0.0.1:8000,::1,localhost:5173,bms-rho-ten.vercel.app')),
+
     /*
     |--------------------------------------------------------------------------
     | Sanctum Guards
@@ -80,5 +80,4 @@ return [
         'encrypt_cookies' => App\Http\Middleware\EncryptCookies::class,
         'verify_csrf_token' => App\Http\Middleware\VerifyCsrfToken::class,
     ],
-
 ];
