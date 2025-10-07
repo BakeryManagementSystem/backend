@@ -304,7 +304,7 @@ class SellerOrderController extends Controller
             });
 
         // Get sales by category
-        $salesByCategory = Product::where('owner_id', $user->id)
+        $salesByCategory = Product::where('products.owner_id', $user->id)
             ->join('order_items', 'products.id', '=', 'order_items.product_id')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->where('orders.status', 'delivered')
