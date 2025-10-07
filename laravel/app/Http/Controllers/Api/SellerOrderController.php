@@ -247,12 +247,29 @@ class SellerOrderController extends Controller
             $q->where('owner_id', $user->id);
         })->where('status', 'delivered')->count();
 
+        // Calculate total revenue from delivered orders
+        $totalRevenue = OrderItem::where('owner_id', $user->id)
+            ->whereHas('order', function($query) {
+                $query->whereIn('status', ['delivered', 'shipped']);
+            })->sum('line_total');
+
+        // Calculate average order value
+        $averageOrderValue = $totalOrders > 0 ? $totalRevenue / $totalOrders : 0;
+
         return response()->json([
-            'total' => $totalOrders,
-            'pending' => $pendingOrders,
-            'processing' => $processingOrders,
-            'shipped' => $shippedOrders,
-            'delivered' => $deliveredOrders
+            'success' => true,
+            'data' => [
+                'total_orders' => $totalOrders,
+                'pending' => $pendingOrders,
+                'processing' => $processingOrders,
+                'shipped' => $shippedOrders,
+                'delivered' => $deliveredOrders,
+                'total_revenue' => (float) $totalRevenue,
+                'average_order_value' => (float) $averageOrderValue,
+                'daily_sales' => [],
+                'monthly_sales' => [],
+                'sales_by_category' => []
+            ]
         ]);
     }
 

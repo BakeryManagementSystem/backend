@@ -156,19 +156,22 @@ class SellerDashboardController extends Controller
         });
 
         return response()->json([
-            'stats' => [
-                'totalProducts' => $totalProducts,
-                'totalOrders' => $totalOrders,
-                'pendingOrders' => $pendingOrders,
-                'totalRevenue' => (float) $totalRevenue,
-                'averageRating' => $averageRating,
-                'totalIngredientInvestment' => (float) $totalIngredientInvestment,
-                'monthlyIngredientCost' => (float) $monthlyIngredientCost,
-                'lowStockItems' => $lowStockItems
-            ],
-            'recentOrders' => $recentOrders,
-            'topProducts' => $topProducts,
-            'recentActivities' => $recentActivities->take(10)->values()
+            'success' => true,
+            'data' => [
+                'stats' => [
+                    'totalProducts' => $totalProducts,
+                    'totalOrders' => $totalOrders,
+                    'pendingOrders' => $pendingOrders,
+                    'totalRevenue' => (float) $totalRevenue,
+                    'averageRating' => $averageRating,
+                    'totalIngredientInvestment' => (float) $totalIngredientInvestment,
+                    'monthlyIngredientCost' => (float) $monthlyIngredientCost,
+                    'lowStockItems' => $lowStockItems
+                ],
+                'recentOrders' => $recentOrders,
+                'topProducts' => $topProducts,
+                'recentActivities' => $recentActivities->take(10)->values()
+            ]
         ]);
     }
 
