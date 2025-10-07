@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderIngredientCost;
+use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -256,6 +257,73 @@ class SellerOrderController extends Controller
         // Calculate average order value
         $averageOrderValue = $totalOrders > 0 ? $totalRevenue / $totalOrders : 0;
 
+        // Get daily sales for the last 30 days
+        $dailySales = OrderItem::where('owner_id', $user->id)
+            ->whereHas('order', function($query) {
+                $query->whereIn('status', ['delivered', 'shipped'])
+                      ->where('created_at', '>=', now()->subDays(30));
+            })
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->select(
+                DB::raw('DATE(orders.created_at) as date'),
+                DB::raw('SUM(order_items.line_total) as revenue'),
+                DB::raw('COUNT(DISTINCT orders.id) as orders')
+            )
+            ->groupBy('date')
+            ->orderBy('date', 'asc')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'date' => $item->date,
+                    'revenue' => (float) $item->revenue,
+                    'orders' => (int) $item->orders
+                ];
+            });
+
+        // Get monthly sales for the last 12 months
+        $monthlySales = OrderItem::where('owner_id', $user->id)
+            ->whereHas('order', function($query) {
+                $query->whereIn('status', ['delivered', 'shipped'])
+                      ->where('created_at', '>=', now()->subMonths(12));
+            })
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->select(
+                DB::raw('DATE_FORMAT(orders.created_at, "%Y-%m") as month'),
+                DB::raw('SUM(order_items.line_total) as revenue'),
+                DB::raw('COUNT(DISTINCT orders.id) as orders')
+            )
+            ->groupBy('month')
+            ->orderBy('month', 'asc')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'month' => $item->month,
+                    'revenue' => (float) $item->revenue,
+                    'orders' => (int) $item->orders
+                ];
+            });
+
+        // Get sales by category
+        $salesByCategory = Product::where('owner_id', $user->id)
+            ->join('order_items', 'products.id', '=', 'order_items.product_id')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.status', 'delivered')
+            ->select(
+                'products.category',
+                DB::raw('SUM(order_items.line_total) as revenue'),
+                DB::raw('SUM(order_items.quantity) as units_sold')
+            )
+            ->groupBy('products.category')
+            ->get()
+            ->map(function($item) use ($totalRevenue) {
+                return [
+                    'category' => $item->category ?? 'Uncategorized',
+                    'revenue' => (float) $item->revenue,
+                    'units_sold' => (int) $item->units_sold,
+                    'percentage' => $totalRevenue > 0 ? round(($item->revenue / $totalRevenue) * 100, 1) : 0
+                ];
+            });
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -266,9 +334,9 @@ class SellerOrderController extends Controller
                 'delivered' => $deliveredOrders,
                 'total_revenue' => (float) $totalRevenue,
                 'average_order_value' => (float) $averageOrderValue,
-                'daily_sales' => [],
-                'monthly_sales' => [],
-                'sales_by_category' => []
+                'daily_sales' => $dailySales,
+                'monthly_sales' => $monthlySales,
+                'sales_by_category' => $salesByCategory
             ]
         ]);
     }

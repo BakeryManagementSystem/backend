@@ -141,6 +141,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/analytics/export', [\App\Http\Controllers\Api\AnalyticsExportController::class, 'exportAnalytics']);
     Route::get('/analytics/export/preview', [\App\Http\Controllers\Api\AnalyticsExportController::class, 'previewAnalytics']);
 
+    // AI Assistant Routes
+    Route::post('/ai/chat', [\App\Http\Controllers\Api\AIAssistantController::class, 'chat']);
+
     // Owner sales
     Route::get('/owner/purchases', [OrderController::class, 'ownerPurchases']);
 
