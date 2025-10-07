@@ -53,11 +53,11 @@ class AIAssistantController extends Controller
     {
         $intents = [
             'sales_inquiry' => ['sales', 'revenue', 'earnings', 'income', 'made', 'profit'],
-            'order_inquiry' => ['orders', 'purchases', 'bought', 'sold', 'order status'],
+            'order_inquiry' => ['orders', 'purchases', 'bought', 'sold', 'order status', 'pending'],
             'product_inquiry' => ['products', 'items', 'inventory', 'stock', 'catalog'],
-            'analytics_inquiry' => ['analytics', 'statistics', 'stats', 'performance', 'trends'],
+            'analytics_inquiry' => ['analytics', 'statistics', 'stats', 'performance', 'trends', 'overview', 'business'],
             'customer_inquiry' => ['customers', 'buyers', 'users', 'clients'],
-            'ingredient_inquiry' => ['ingredients', 'investment', 'costs', 'expenses'],
+            'ingredient_inquiry' => ['ingredient', 'ingredients', 'investment', 'costs', 'expenses', 'low stock', 'expired', 'expiring', 'expiry', 'batch', 'batches', 'supplier', 'flour', 'butter', 'sugar'],
             'shop_inquiry' => ['shop', 'store', 'profile', 'about'],
             'recommendation' => ['recommend', 'suggest', 'best', 'top', 'popular'],
             'comparison' => ['compare', 'difference', 'versus', 'vs'],
@@ -121,7 +121,7 @@ class AIAssistantController extends Controller
      */
     private function handleSalesInquiry($message, $user)
     {
-        $isSeller = $user->role === 'seller';
+        $isSeller = $user->user_type === 'seller' || $user->user_type === 'owner';
 
         if ($isSeller) {
             $totalRevenue = OrderItem::where('owner_id', $user->id)
@@ -192,7 +192,7 @@ class AIAssistantController extends Controller
      */
     private function handleOrderInquiry($message, $user)
     {
-        $isSeller = $user->role === 'seller';
+        $isSeller = $user->user_type === 'seller' || $user->user_type === 'owner';
 
         if ($isSeller) {
             $pendingOrders = Order::whereHas('orderItems', function($q) use ($user) {
@@ -259,7 +259,7 @@ class AIAssistantController extends Controller
      */
     private function handleProductInquiry($message, $user)
     {
-        $isSeller = $user->role === 'seller';
+        $isSeller = $user->user_type === 'seller' || $user->user_type === 'owner';
 
         if ($isSeller) {
             $totalProducts = Product::where('owner_id', $user->id)->count();
@@ -317,7 +317,7 @@ class AIAssistantController extends Controller
      */
     private function handleAnalyticsInquiry($message, $user)
     {
-        if ($user->role !== 'seller') {
+        if ($user->user_type !== 'seller' && $user->user_type !== 'owner') {
             return [
                 'message' => "Analytics are available for sellers. As a buyer, you can view your order history and spending patterns.",
                 'suggestions' => ['Show my orders', 'How much have I spent?']
@@ -373,7 +373,7 @@ class AIAssistantController extends Controller
      */
     private function handleCustomerInquiry($message, $user)
     {
-        if ($user->role !== 'seller') {
+        if ($user->user_type !== 'seller' && $user->user_type !== 'owner') {
             return [
                 'message' => "Customer analytics are available for sellers only.",
                 'suggestions' => ['Show my orders', 'Browse products']
@@ -425,13 +425,156 @@ class AIAssistantController extends Controller
      */
     private function handleIngredientInquiry($message, $user)
     {
-        if ($user->role !== 'seller') {
+        if ($user->user_type !== 'seller' && $user->user_type !== 'owner') {
             return [
                 'message' => "Ingredient tracking is available for sellers only.",
                 'suggestions' => ['Browse products', 'Show my orders']
             ];
         }
 
+        // Import Ingredient model at the top of the class if not already imported
+        $ingredients = \App\Models\Ingredient::where('owner_id', $user->id)->get();
+
+        // Check for specific ingredient queries
+
+        // LOW STOCK INGREDIENTS
+        if (strpos($message, 'low stock') !== false || strpos($message, 'running low') !== false) {
+            $lowStockIngredients = \App\Models\Ingredient::where('owner_id', $user->id)
+                ->whereColumn('current_stock', '<=', 'minimum_stock')
+                ->get();
+
+            if ($lowStockIngredients->count() > 0) {
+                $ingredientList = $lowStockIngredients->map(function($ing) {
+                    return "• {$ing->name}: {$ing->current_stock} {$ing->unit} (Min: {$ing->minimum_stock} {$ing->unit})\n  Supplier: {$ing->supplier}";
+                })->implode("\n\n");
+
+                return [
+                    'message' => "⚠️ Low Stock Alert! ({$lowStockIngredients->count()} items)\n\n" .
+                        "The following ingredients need to be reordered:\n\n{$ingredientList}",
+                    'data' => ['low_stock_ingredients' => $lowStockIngredients],
+                    'suggestions' => [
+                        'Show ingredient suppliers',
+                        'View ingredient batches',
+                        'Add new ingredient batch'
+                    ],
+                    'actions' => [
+                        ['label' => 'Manage Ingredients', 'action' => 'navigate', 'path' => '/seller/ingredients']
+                    ]
+                ];
+            } else {
+                return [
+                    'message' => "✅ Great news! All ingredients are currently above minimum stock levels. Your inventory is well-stocked.",
+                    'suggestions' => [
+                        'View all ingredients',
+                        'Check ingredient statistics',
+                        'View ingredient batches'
+                    ]
+                ];
+            }
+        }
+
+        // EXPIRED/EXPIRING INGREDIENTS
+        if (strpos($message, 'expired') !== false || strpos($message, 'expiring') !== false || strpos($message, 'expiry') !== false) {
+            $expiredBatches = IngredientBatch::where('owner_id', $user->id)
+                ->where('expiry_date', '<', now())
+                ->get();
+
+            $expiringBatches = IngredientBatch::where('owner_id', $user->id)
+                ->whereBetween('expiry_date', [now(), now()->addDays(30)])
+                ->get();
+
+            $message = "";
+
+            if ($expiredBatches->count() > 0) {
+                $expiredList = $expiredBatches->map(function($batch) {
+                    return "• {$batch->ingredient_name} (Batch: {$batch->batch_number})\n  Expired: {$batch->expiry_date}";
+                })->implode("\n\n");
+
+                $message .= "❌ Expired Items ({$expiredBatches->count()}):\n\n{$expiredList}\n\n";
+            }
+
+            if ($expiringBatches->count() > 0) {
+                $expiringList = $expiringBatches->map(function($batch) {
+                    return "• {$batch->ingredient_name} (Batch: {$batch->batch_number})\n  Expires: {$batch->expiry_date}";
+                })->implode("\n\n");
+
+                $message .= "⚠️ Expiring Soon ({$expiringBatches->count()}):\n\n{$expiringList}";
+            }
+
+            if ($expiredBatches->count() === 0 && $expiringBatches->count() === 0) {
+                $message = "✅ Good news! No expired ingredients and no items expiring in the next 30 days.";
+            }
+
+            return [
+                'message' => $message,
+                'data' => [
+                    'expired_batches' => $expiredBatches,
+                    'expiring_batches' => $expiringBatches
+                ],
+                'suggestions' => [
+                    'View all ingredient batches',
+                    'Check low stock items',
+                    'Add new ingredient batch'
+                ]
+            ];
+        }
+
+        // INGREDIENT STATISTICS
+        if (strpos($message, 'statistics') !== false || strpos($message, 'stats') !== false || strpos($message, 'overview') !== false) {
+            $totalIngredients = $ingredients->count();
+            $totalValue = $ingredients->sum(function($ing) {
+                return $ing->current_stock * $ing->cost_per_unit;
+            });
+
+            $lowStockCount = $ingredients->filter(function($ing) {
+                return $ing->current_stock <= $ing->minimum_stock;
+            })->count();
+
+            $expiredCount = IngredientBatch::where('owner_id', $user->id)
+                ->where('expiry_date', '<', now())
+                ->count();
+
+            $monthlyBatches = IngredientBatch::where('owner_id', $user->id)
+                ->whereMonth('created_at', now()->month)
+                ->get();
+
+            $monthlyUsage = $monthlyBatches->sum('total_cost');
+
+            // Get top ingredients by value
+            $topIngredients = $ingredients->sortByDesc(function($ing) {
+                return $ing->current_stock * $ing->cost_per_unit;
+            })->take(5);
+
+            $topIngredientsList = $topIngredients->map(function($ing, $index) {
+                $value = $ing->current_stock * $ing->cost_per_unit;
+                return ($index + 1) . ". {$ing->name}: \${$value} ({$ing->current_stock} {$ing->unit})";
+            })->implode("\n");
+
+            return [
+                'message' => "📊 Ingredient Statistics Overview:\n\n" .
+                    "• Total Ingredients: {$totalIngredients}\n" .
+                    "• Total Inventory Value: $" . number_format($totalValue, 2) . "\n" .
+                    "• Low Stock Items: {$lowStockCount}\n" .
+                    "• Expired Batches: {$expiredCount}\n" .
+                    "• Monthly Usage: $" . number_format($monthlyUsage, 2) . "\n\n" .
+                    "**Top Ingredients by Value:**\n{$topIngredientsList}",
+                'data' => [
+                    'total_ingredients' => $totalIngredients,
+                    'total_value' => $totalValue,
+                    'low_stock_count' => $lowStockCount,
+                    'expired_count' => $expiredCount,
+                    'monthly_usage' => $monthlyUsage,
+                    'top_ingredients' => $topIngredients
+                ],
+                'suggestions' => [
+                    'Show low stock items',
+                    'Check expired items',
+                    'View ingredient batches'
+                ]
+            ];
+        }
+
+        // DEFAULT: Show general investment & profit analysis
         $manualInvestment = IngredientBatch::where('owner_id', $user->id)->sum('total_cost');
         $orderBasedCosts = OrderIngredientCost::where('owner_id', $user->id)->sum('total_ingredient_cost');
         $totalInvestment = $manualInvestment + $orderBasedCosts;
@@ -466,9 +609,9 @@ class AIAssistantController extends Controller
                 'profit_margin' => $profitMargin
             ],
             'suggestions' => [
-                'Show ingredient costs breakdown',
-                'Compare costs vs revenue',
-                'Add new ingredient batch'
+                'Show ingredient statistics',
+                'Check low stock items',
+                'View expired ingredients'
             ],
             'actions' => [
                 ['label' => 'Manage Ingredients', 'action' => 'navigate', 'path' => '/seller/ingredients']
@@ -481,7 +624,7 @@ class AIAssistantController extends Controller
      */
     private function handleShopInquiry($message, $user)
     {
-        if ($user->role !== 'seller') {
+        if ($user->user_type !== 'seller' && $user->user_type !== 'owner') {
             return [
                 'message' => "You can browse shops and products from our marketplace!",
                 'suggestions' => ['Browse products', 'Show popular items', 'Search for shops']
@@ -521,7 +664,7 @@ class AIAssistantController extends Controller
      */
     private function handleRecommendation($message, $user)
     {
-        if ($user->role === 'seller') {
+        if ($user->user_type === 'seller' || $user->user_type === 'owner') {
             $lowStockProducts = Product::where('owner_id', $user->id)
                 ->where('stock_quantity', '<', 10)
                 ->take(3)
@@ -593,7 +736,7 @@ class AIAssistantController extends Controller
      */
     private function handleComparison($message, $user)
     {
-        if ($user->role !== 'seller') {
+        if ($user->user_type !== 'seller' && $user->user_type !== 'owner') {
             return [
                 'message' => "Comparison features are available for sellers to compare their performance metrics.",
                 'suggestions' => ['Show my orders', 'Browse products']
@@ -638,7 +781,7 @@ class AIAssistantController extends Controller
      */
     private function handleHelp($message, $user)
     {
-        $isSeller = $user->role === 'seller';
+        $isSeller = $user->user_type === 'seller' || $user->user_type === 'owner';
 
         $helpTopics = $isSeller ? [
             "📦 Managing Products - Add, edit, and track your inventory",
