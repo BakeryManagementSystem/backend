@@ -11,7 +11,7 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with(['owner', 'reviews']);
+        $query = Product::with(['owner']);
 
         // Search functionality
         if ($request->has('search') && $request->search) {
@@ -52,10 +52,18 @@ class ProductController extends Controller
 
         // Add review statistics to each product
         $products->getCollection()->transform(function ($product) {
-            $product->reviews_count = $product->reviews->count();
-            $product->average_rating = $product->reviews->count() > 0
-                ? round($product->reviews->avg('rating'), 1)
-                : 0;
+            // Load reviews count and average without loading full reviews
+            $reviewsCount = \DB::table('product_reviews')
+                ->where('product_id', $product->id)
+                ->count();
+
+            $averageRating = \DB::table('product_reviews')
+                ->where('product_id', $product->id)
+                ->avg('rating');
+
+            $product->reviews_count = $reviewsCount;
+            $product->average_rating = $averageRating ? round($averageRating, 1) : 0;
+
             return $product;
         });
 
@@ -64,13 +72,19 @@ class ProductController extends Controller
 
     public function show($id)
     {
-        $product = Product::with(['owner', 'reviews'])->findOrFail($id);
+        $product = Product::with(['owner'])->findOrFail($id);
 
-        // Add review statistics
-        $product->reviews_count = $product->reviews->count();
-        $product->average_rating = $product->reviews->count() > 0
-            ? round($product->reviews->avg('rating'), 1)
-            : 0;
+        // Add review statistics using direct DB queries
+        $reviewsCount = \DB::table('product_reviews')
+            ->where('product_id', $product->id)
+            ->count();
+
+        $averageRating = \DB::table('product_reviews')
+            ->where('product_id', $product->id)
+            ->avg('rating');
+
+        $product->reviews_count = $reviewsCount;
+        $product->average_rating = $averageRating ? round($averageRating, 1) : 0;
 
         return response()->json($product);
     }
