@@ -50,7 +50,13 @@ Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/categories/{id}', [CategoryController::class, 'show']);
-Route::get('/test/products', [TestController::class, 'testProducts']); // Test endpoint
+
+// Public Review Routes
+Route::get('/products/{productId}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'index']);
+Route::get('/products/{productId}/stats', [\App\Http\Controllers\Api\ReviewController::class, 'getProductStats']);
+
+// Test endpoint
+Route::get('/test/products', [TestController::class, 'testProducts']);
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()]));
 Route::get('/shops/{owner}', [ProfileController::class, 'publicShop']); // public
 
@@ -234,6 +240,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/ai/profile', [AIController::class, 'getUserProfile']);
     Route::get('/user/orders', [AIController::class, 'getUserOrders']);
     Route::get('/user/balance', [AIController::class, 'getUserBalance']);
+
+    // Review Routes (Protected)
+    Route::post('/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
+    Route::put('/reviews/{id}', [\App\Http\Controllers\Api\ReviewController::class, 'update']);
+    Route::delete('/reviews/{id}', [\App\Http\Controllers\Api\ReviewController::class, 'destroy']);
+    Route::get('/orders/{orderId}/products/{productId}/can-review', [\App\Http\Controllers\Api\ReviewController::class, 'canReview']);
 });
 
 // Legacy routes (keeping for backward compatibility)

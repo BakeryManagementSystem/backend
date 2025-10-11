@@ -11,7 +11,7 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with('owner');
+        $query = Product::with(['owner', 'reviews']);
 
         // Search functionality
         if ($request->has('search') && $request->search) {
@@ -50,12 +50,28 @@ class ProductController extends Controller
 
         $products = $query->paginate(12);
 
+        // Add review statistics to each product
+        $products->getCollection()->transform(function ($product) {
+            $product->reviews_count = $product->reviews->count();
+            $product->average_rating = $product->reviews->count() > 0
+                ? round($product->reviews->avg('rating'), 1)
+                : 0;
+            return $product;
+        });
+
         return response()->json($products);
     }
 
     public function show($id)
     {
-        $product = Product::with('owner')->findOrFail($id);
+        $product = Product::with(['owner', 'reviews'])->findOrFail($id);
+
+        // Add review statistics
+        $product->reviews_count = $product->reviews->count();
+        $product->average_rating = $product->reviews->count() > 0
+            ? round($product->reviews->avg('rating'), 1)
+            : 0;
+
         return response()->json($product);
     }
 
