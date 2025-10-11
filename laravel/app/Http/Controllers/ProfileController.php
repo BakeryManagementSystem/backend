@@ -133,6 +133,73 @@ class ProfileController extends Controller
         ]);
     }
 
+    // GET /api/shops (public - get all shops with statistics)
+    public function allShops(Request $request)
+    {
+        $query = ShopProfile::with(['owner' => function($q) {
+            $q->select('id', 'name', 'email');
+        }]);
 
+        // Apply search filter
+        if ($search = $request->get('search')) {
+            $query->where(function($q) use ($search) {
+                $q->where('shop_name', 'like', '%' . $search . '%')
+                  ->orWhere('description', 'like', '%' . $search . '%');
+            });
+        }
 
+        // Apply filters
+        switch ($request->get('filter')) {
+            case 'verified':
+                $query->where('verified', true);
+                break;
+            case 'top-rated':
+                $query->where('average_rating', '>=', 4.5);
+                break;
+            case 'new':
+                $query->where('created_at', '>=', now()->subDays(30));
+                break;
+        }
+
+        // Apply sorting
+        switch ($request->get('sort')) {
+            case 'rating':
+                $query->orderBy('average_rating', 'desc');
+                break;
+            case 'products':
+                $query->orderBy('total_products', 'desc');
+                break;
+            case 'reviews':
+                $query->orderBy('total_reviews', 'desc');
+                break;
+            case 'newest':
+                $query->orderBy('created_at', 'desc');
+                break;
+            default:
+                $query->orderBy('average_rating', 'desc');
+        }
+
+        $shops = $query->get()->map(function($shop) {
+            return [
+                'id' => $shop->id,
+                'owner_id' => $shop->owner_id,
+                'shop_name' => $shop->shop_name,
+                'description' => $shop->description,
+                'logo_path' => $shop->logo_path ? \Storage::url($shop->logo_path) : null,
+                'banner_path' => $shop->banner_path ? \Storage::url($shop->banner_path) : null,
+                'average_rating' => $shop->average_rating ?? 5.0,
+                'total_reviews' => $shop->total_reviews ?? 0,
+                'total_products' => $shop->total_products ?? 0,
+                'total_sales' => $shop->total_sales ?? 0,
+                'verified' => $shop->verified ?? false,
+                'created_at' => $shop->created_at,
+                'owner' => $shop->owner
+            };
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $shops
+        ]);
+    }
 }

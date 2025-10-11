@@ -58,7 +58,8 @@ Route::get('/products/{productId}/stats', [\App\Http\Controllers\Api\ReviewContr
 // Test endpoint
 Route::get('/test/products', [TestController::class, 'testProducts']);
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()]));
-Route::get('/shops/{owner}', [ProfileController::class, 'publicShop']); // public
+Route::get('/shops', [ProfileController::class, 'allShops']); // public - get all shops
+Route::get('/shops/{owner}', [ProfileController::class, 'publicShop']); // public - get single shop
 
 // AI Assistant routes (public - can work for both logged in and guest users)
 Route::get('/ai/context', [AIController::class, 'getContextData']);
