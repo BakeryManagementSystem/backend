@@ -214,25 +214,65 @@ class ProfileController extends Controller
             }
 
             $shops = $query->get()->map(function($shop) {
-                return [
-                    'id' => $shop->id,
-                    'owner_id' => $shop->owner_id,
-                    'shop_name' => $shop->shop_name ?? 'Unnamed Shop',
-                    'description' => $shop->description ?? '',
-                    'logo_path' => $shop->logo_path ? url(\Storage::url($shop->logo_path)) : null,
-                    'banner_path' => $shop->banner_path ? url(\Storage::url($shop->banner_path)) : null,
-                    'average_rating' => (float) ($shop->average_rating ?? 5.0),
-                    'total_reviews' => (int) ($shop->total_reviews ?? 0),
-                    'total_products' => (int) ($shop->total_products ?? 0),
-                    'total_sales' => (int) ($shop->total_sales ?? 0),
-                    'verified' => (bool) ($shop->verified ?? false),
-                    'created_at' => $shop->created_at ? $shop->created_at->toDateTimeString() : null,
-                    'owner' => $shop->owner ? [
-                        'id' => $shop->owner->id,
-                        'name' => $shop->owner->name,
-                        'email' => $shop->owner->email
-                    ] : null
-                };
+                try {
+                    // Build logo and banner URLs safely
+                    $logoUrl = null;
+                    $bannerUrl = null;
+
+                    if ($shop->logo_path) {
+                        try {
+                            $logoUrl = url(Storage::url($shop->logo_path));
+                        } catch (\Exception $e) {
+                            \Log::warning('Failed to generate logo URL for shop ' . $shop->id);
+                        }
+                    }
+
+                    if ($shop->banner_path) {
+                        try {
+                            $bannerUrl = url(Storage::url($shop->banner_path));
+                        } catch (\Exception $e) {
+                            \Log::warning('Failed to generate banner URL for shop ' . $shop->id);
+                        }
+                    }
+
+                    return [
+                        'id' => $shop->id,
+                        'owner_id' => $shop->owner_id,
+                        'shop_name' => $shop->shop_name ?? 'Unnamed Shop',
+                        'description' => $shop->description ?? '',
+                        'logo_path' => $logoUrl,
+                        'banner_path' => $bannerUrl,
+                        'average_rating' => (float) ($shop->average_rating ?? 5.0),
+                        'total_reviews' => (int) ($shop->total_reviews ?? 0),
+                        'total_products' => (int) ($shop->total_products ?? 0),
+                        'total_sales' => (int) ($shop->total_sales ?? 0),
+                        'verified' => (bool) ($shop->verified ?? false),
+                        'created_at' => $shop->created_at ? $shop->created_at->toDateTimeString() : null,
+                        'owner' => $shop->owner ? [
+                            'id' => $shop->owner->id,
+                            'name' => $shop->owner->name,
+                            'email' => $shop->owner->email
+                        ] : null
+                    ];
+                } catch (\Exception $e) {
+                    \Log::error('Error mapping shop ' . $shop->id . ': ' . $e->getMessage());
+                    // Return minimal data for problematic shops
+                    return [
+                        'id' => $shop->id,
+                        'owner_id' => $shop->owner_id,
+                        'shop_name' => $shop->shop_name ?? 'Unnamed Shop',
+                        'description' => '',
+                        'logo_path' => null,
+                        'banner_path' => null,
+                        'average_rating' => 5.0,
+                        'total_reviews' => 0,
+                        'total_products' => 0,
+                        'total_sales' => 0,
+                        'verified' => false,
+                        'created_at' => null,
+                        'owner' => null
+                    ];
+                }
             });
 
             return response()->json([

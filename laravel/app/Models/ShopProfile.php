@@ -67,8 +67,6 @@ class ShopProfile extends Model
         return $this->belongsTo(User::class, 'owner_id');
     }
 
-    protected $appends = ['logo_url', 'banner_url'];
-
     public function getLogoUrlAttribute()
     {
         return $this->logo_path ? url(\Storage::url($this->logo_path)) : null;
