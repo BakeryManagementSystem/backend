@@ -125,6 +125,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/seller/products/{id}', [\App\Http\Controllers\Api\SellerProductController::class, 'destroy']);
     Route::get('/seller/products/stats', [\App\Http\Controllers\Api\SellerProductController::class, 'getStats']);
 
+    // Seller Analytics Export Routes
+    Route::get('/seller/analytics/export', [\App\Http\Controllers\Api\AnalyticsExportController::class, 'exportAnalytics']);
+    Route::get('/seller/analytics/preview', [\App\Http\Controllers\Api\AnalyticsExportController::class, 'previewAnalytics']);
+
     // Notifications routes (ENHANCED)
     Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
     Route::patch('/notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead']);
