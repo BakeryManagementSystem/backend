@@ -107,6 +107,17 @@ class ProfileController extends Controller
                ['shop_name' => $u->name . "'s Shop"]
            );
 
+           // Helper function to get proper URL
+           $getImageUrl = function($path) {
+               if (!$path) return null;
+               // Check if it's already a full URL (http:// or https://)
+               if (filter_var($path, FILTER_VALIDATE_URL)) {
+                   return $path;
+               }
+               // Otherwise, it's a local storage path
+               return url(\Storage::url($path));
+           };
+
            // Ensure JSON fields are properly formatted
            $shopData = [
                'id' => $shop->id,
@@ -115,8 +126,8 @@ class ProfileController extends Controller
                'description' => $shop->description,
                'address' => $shop->address,
                'phone' => $shop->phone,
-               'logo_path' => $shop->logo_path ? url(\Storage::url($shop->logo_path)) : null,
-               'banner_path' => $shop->banner_path ? url(\Storage::url($shop->banner_path)) : null,
+               'logo_path' => $getImageUrl($shop->logo_path),
+               'banner_path' => $getImageUrl($shop->banner_path),
                'facebook_url' => $shop->facebook_url,
                'theme' => is_string($shop->theme) ? json_decode($shop->theme, true) : ($shop->theme ?? []),
                'policies' => is_string($shop->policies) ? json_decode($shop->policies, true) : ($shop->policies ?? []),
@@ -167,6 +178,17 @@ class ProfileController extends Controller
             ]);
         }
 
+        // Helper function to get proper URL
+        $getImageUrl = function($path) {
+            if (!$path) return null;
+            // Check if it's already a full URL (http:// or https://)
+            if (filter_var($path, FILTER_VALIDATE_URL)) {
+                return $path;
+            }
+            // Otherwise, it's a local storage path
+            return url(\Storage::url($path));
+        };
+
         // Format the shop data with proper URLs
         $shopData = [
             'id' => $shop->id,
@@ -175,8 +197,8 @@ class ProfileController extends Controller
             'description' => $shop->description,
             'address' => $shop->address,
             'phone' => $shop->phone,
-            'logo_path' => $shop->logo_path ? url(\Storage::url($shop->logo_path)) : null,
-            'banner_path' => $shop->banner_path ? url(\Storage::url($shop->banner_path)) : null,
+            'logo_path' => $getImageUrl($shop->logo_path),
+            'banner_path' => $getImageUrl($shop->banner_path),
             'facebook_url' => $shop->facebook_url,
             'theme' => is_string($shop->theme) ? json_decode($shop->theme, true) : ($shop->theme ?? []),
             'policies' => is_string($shop->policies) ? json_decode($shop->policies, true) : ($shop->policies ?? []),
@@ -251,25 +273,20 @@ class ProfileController extends Controller
 
             $shops = $query->get()->map(function($shop) {
                 try {
-                    // Build logo and banner URLs safely
-                    $logoUrl = null;
-                    $bannerUrl = null;
-
-                    if ($shop->logo_path) {
-                        try {
-                            $logoUrl = url(Storage::url($shop->logo_path));
-                        } catch (\Exception $e) {
-                            \Log::warning('Failed to generate logo URL for shop ' . $shop->id);
+                    // Helper function to get proper URL
+                    $getImageUrl = function($path) {
+                        if (!$path) return null;
+                        // Check if it's already a full URL (http:// or https://)
+                        if (filter_var($path, FILTER_VALIDATE_URL)) {
+                            return $path;
                         }
-                    }
-
-                    if ($shop->banner_path) {
+                        // Otherwise, it's a local storage path
                         try {
-                            $bannerUrl = url(Storage::url($shop->banner_path));
+                            return url(Storage::url($path));
                         } catch (\Exception $e) {
-                            \Log::warning('Failed to generate banner URL for shop ' . $shop->id);
+                            return null;
                         }
-                    }
+                    };
 
                     // Safely get owner data
                     $ownerData = null;
@@ -286,8 +303,8 @@ class ProfileController extends Controller
                         'owner_id' => $shop->owner_id,
                         'shop_name' => $shop->shop_name ?? 'Unnamed Shop',
                         'description' => $shop->description ?? '',
-                        'logo_path' => $logoUrl,
-                        'banner_path' => $bannerUrl,
+                        'logo_path' => $getImageUrl($shop->logo_path),
+                        'banner_path' => $getImageUrl($shop->banner_path),
                         'average_rating' => (float) ($shop->average_rating ?? 5.0),
                         'total_reviews' => (int) ($shop->total_reviews ?? 0),
                         'total_products' => (int) ($shop->total_products ?? 0),

@@ -59,6 +59,17 @@ class ShopController extends Controller
             'theme' => $shop->theme
         ]);
 
+        // Helper function to get proper URL
+        $getImageUrl = function($path) {
+            if (!$path) return null;
+            // Check if it's already a full URL (http:// or https://)
+            if (filter_var($path, FILTER_VALIDATE_URL)) {
+                return $path;
+            }
+            // Otherwise, it's a local storage path
+            return Storage::url($path);
+        };
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -66,8 +77,8 @@ class ShopController extends Controller
                 'owner_id' => $shop->owner_id,
                 'name' => $shop->shop_name,
                 'description' => $shop->description ?? '',
-                'logo' => $shop->logo_path ? Storage::url($shop->logo_path) : null,
-                'banner' => $shop->banner_path ? Storage::url($shop->banner_path) : null,
+                'logo' => $getImageUrl($shop->logo_path),
+                'banner' => $getImageUrl($shop->banner_path),
                 'theme' => $shop->theme ?? [
                     'primaryColor' => '#2563eb',
                     'secondaryColor' => '#64748b',
@@ -219,14 +230,25 @@ class ShopController extends Controller
             'theme_in_db' => $shop->fresh()->theme
         ]);
 
+        // Helper function to get proper URL
+        $getImageUrl = function($path) {
+            if (!$path) return null;
+            // Check if it's already a full URL (http:// or https://)
+            if (filter_var($path, FILTER_VALIDATE_URL)) {
+                return $path;
+            }
+            // Otherwise, it's a local storage path
+            return Storage::url($path);
+        };
+
         return response()->json([
             'success' => true,
             'message' => 'Shop updated successfully',
             'data' => [
                 'name' => $shop->shop_name,
                 'description' => $shop->description,
-                'logo' => $shop->logo_path ? Storage::url($shop->logo_path) : null,
-                'banner' => $shop->banner_path ? Storage::url($shop->banner_path) : null,
+                'logo' => $getImageUrl($shop->logo_path),
+                'banner' => $getImageUrl($shop->banner_path),
                 'theme' => $shop->theme,
                 'policies' => $shop->policies,
                 'social' => $shop->social,
