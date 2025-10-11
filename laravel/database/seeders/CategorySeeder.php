@@ -20,6 +20,7 @@ class CategorySeeder extends Seeder
                 'description' => 'Fresh baked breads',
                 'parent_id' => null,
                 'status' => true,
+                'sort_order' => 1,
             ],
             [
                 'id' => 2,
@@ -27,6 +28,7 @@ class CategorySeeder extends Seeder
                 'description' => 'Sweet and savory pastries',
                 'parent_id' => null,
                 'status' => true,
+                'sort_order' => 2,
             ],
             [
                 'id' => 3,
@@ -34,6 +36,7 @@ class CategorySeeder extends Seeder
                 'description' => 'Custom and ready-made cakes',
                 'parent_id' => null,
                 'status' => true,
+                'sort_order' => 3,
             ],
             [
                 'id' => 4,
@@ -41,6 +44,7 @@ class CategorySeeder extends Seeder
                 'description' => 'Freshly baked cookies',
                 'parent_id' => null,
                 'status' => true,
+                'sort_order' => 4,
             ],
             [
                 'id' => 5,
@@ -48,6 +52,7 @@ class CategorySeeder extends Seeder
                 'description' => 'Various desserts and sweets',
                 'parent_id' => null,
                 'status' => true,
+                'sort_order' => 5,
             ]
         ];
 
