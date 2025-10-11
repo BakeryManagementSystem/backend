@@ -16,6 +16,8 @@ class ProductController extends Controller
             $category = trim((string) $request->input('category', ''));
 
             $query = Product::query()
+                // Load owner relationship with shop profile
+                ->with(['owner', 'owner.shopProfile'])
                 // Select all available columns, handling both basic and enhanced database structures
                 ->select(['id','owner_id','name','description','price','discount_price','category','category_id','stock_quantity','sku','weight','dimensions','ingredients','allergens','status','is_featured','meta_title','meta_description','image_path','images'])
                 // filter
@@ -52,6 +54,15 @@ class ProductController extends Controller
                 $p->is_featured = (bool) ($p->is_featured ?? false);
                 $p->ingredients = $p->ingredients ?? [];
                 $p->allergens = $p->allergens ?? [];
+
+                // Add owner information
+                if ($p->owner) {
+                    $p->seller = $p->owner->shop_name ?? $p->owner->name ?? 'Unknown Seller';
+                    $p->seller_id = $p->owner->id;
+                } else {
+                    $p->seller = 'Unknown Seller';
+                    $p->seller_id = null;
+                }
 
                 return $p;
             });
@@ -196,6 +207,27 @@ class ProductController extends Controller
     // (Optional) Single product
     public function show(Product $product)
     {
+        // Load owner relationship with shop profile
+        $product->load(['owner', 'owner.shopProfile']);
+
+        // Add seller information
+        if ($product->owner) {
+            $product->seller = $product->owner->shop_name ?? $product->owner->name ?? 'Unknown Seller';
+            $product->seller_id = $product->owner->id;
+        } else {
+            $product->seller = 'Unknown Seller';
+            $product->seller_id = null;
+        }
+
+        // Transform images for response
+        $product->image_url = $product->image_path
+            ? (str_starts_with($product->image_path, 'http') ? $product->image_path : url('/storage/'.$product->image_path))
+            : null;
+
+        $product->image_urls = array_map(function($path) {
+            return str_starts_with($path, 'http') ? $path : url('/storage/' . $path);
+        }, $product->images ?? []);
+
         return response()->json($product);
     }
 }

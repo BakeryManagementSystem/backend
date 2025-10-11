@@ -17,7 +17,8 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'user_type' => 'required|in:buyer,seller,owner'
+            'user_type' => 'required|in:buyer,seller,owner',
+            'shop_name' => 'nullable|string|max:255'
         ]);
 
         $user = User::create([
@@ -25,7 +26,39 @@ class AuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'user_type' => $request->user_type,
+            'shop_name' => $request->shop_name ?? $request->name . "'s Shop",
         ]);
+
+        // Create shop profile for sellers/owners
+        if (in_array($request->user_type, ['seller', 'owner'])) {
+            \App\Models\ShopProfile::create([
+                'owner_id' => $user->id,
+                'shop_name' => $request->shop_name ?? $request->name . "'s Shop",
+                'description' => '',
+                'theme' => json_encode([
+                    'primaryColor' => '#2563eb',
+                    'secondaryColor' => '#64748b',
+                    'accentColor' => '#f59e0b'
+                ]),
+                'policies' => json_encode([
+                    'shipping' => '',
+                    'returns' => '',
+                    'exchange' => ''
+                ]),
+                'social' => json_encode([
+                    'website' => '',
+                    'facebook' => '',
+                    'twitter' => '',
+                    'instagram' => ''
+                ]),
+                'settings' => json_encode([
+                    'showContactInfo' => true,
+                    'showReviews' => true,
+                    'allowMessages' => true,
+                    'featuredProducts' => []
+                ])
+            ]);
+        }
 
         $token = $user->createToken('api-token')->plainTextToken;
 
