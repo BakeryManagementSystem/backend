@@ -22,6 +22,30 @@ Route::middleware('auth:sanctum')->get('/user', fn (Request $r) => $r->user());
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/login', function () {
+    return response()->json([
+        'message' => 'Login endpoint information',
+        'method' => 'POST',
+        'endpoint' => '/api/login',
+        'required_fields' => [
+            'email' => 'string|required',
+            'password' => 'string|required'
+        ],
+        'example' => [
+            'email' => 'user@example.com',
+            'password' => 'your_password'
+        ],
+        'response' => [
+            'success' => [
+                'user' => 'User object',
+                'token' => 'Bearer token for authentication'
+            ],
+            'error' => [
+                'message' => 'Error description'
+            ]
+        ]
+    ], 200);
+});
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 Route::get('/categories', [CategoryController::class, 'index']);
