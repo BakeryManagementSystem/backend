@@ -136,70 +136,89 @@ class ProfileController extends Controller
     // GET /api/shops (public - get all shops with statistics)
     public function allShops(Request $request)
     {
-        $query = ShopProfile::with(['owner' => function($q) {
-            $q->select('id', 'name', 'email');
-        }]);
+        try {
+            $query = ShopProfile::with(['owner' => function($q) {
+                $q->select('id', 'name', 'email');
+            }]);
 
-        // Apply search filter
-        if ($search = $request->get('search')) {
-            $query->where(function($q) use ($search) {
-                $q->where('shop_name', 'like', '%' . $search . '%')
-                  ->orWhere('description', 'like', '%' . $search . '%');
+            // Apply search filter
+            if ($search = $request->get('search')) {
+                $query->where(function($q) use ($search) {
+                    $q->where('shop_name', 'like', '%' . $search . '%')
+                      ->orWhere('description', 'like', '%' . $search . '%');
+                });
+            }
+
+            // Apply filters
+            switch ($request->get('filter')) {
+                case 'verified':
+                    $query->where('verified', true);
+                    break;
+                case 'top-rated':
+                    $query->where('average_rating', '>=', 4.5);
+                    break;
+                case 'new':
+                    $query->where('created_at', '>=', now()->subDays(30));
+                    break;
+            }
+
+            // Apply sorting
+            switch ($request->get('sort')) {
+                case 'rating':
+                    $query->orderBy('average_rating', 'desc');
+                    break;
+                case 'products':
+                    $query->orderBy('total_products', 'desc');
+                    break;
+                case 'reviews':
+                    $query->orderBy('total_reviews', 'desc');
+                    break;
+                case 'newest':
+                    $query->orderBy('created_at', 'desc');
+                    break;
+                default:
+                    $query->orderBy('id', 'desc');
+            }
+
+            $shops = $query->get()->map(function($shop) {
+                // Safely handle JSON fields
+                $theme = $shop->theme ?? [];
+                $policies = $shop->policies ?? [];
+                $social = $shop->social ?? [];
+                $settings = $shop->settings ?? [];
+
+                return [
+                    'id' => $shop->id,
+                    'owner_id' => $shop->owner_id,
+                    'shop_name' => $shop->shop_name ?? 'Unnamed Shop',
+                    'description' => $shop->description ?? '',
+                    'logo_path' => $shop->logo_path ? \Storage::url($shop->logo_path) : null,
+                    'banner_path' => $shop->banner_path ? \Storage::url($shop->banner_path) : null,
+                    'average_rating' => (float) ($shop->average_rating ?? 5.0),
+                    'total_reviews' => (int) ($shop->total_reviews ?? 0),
+                    'total_products' => (int) ($shop->total_products ?? 0),
+                    'total_sales' => (int) ($shop->total_sales ?? 0),
+                    'verified' => (bool) ($shop->verified ?? false),
+                    'created_at' => $shop->created_at?->toISOString() ?? null,
+                    'owner' => $shop->owner ? [
+                        'id' => $shop->owner->id,
+                        'name' => $shop->owner->name,
+                        'email' => $shop->owner->email
+                    ] : null
+                ];
             });
+
+            return response()->json([
+                'success' => true,
+                'data' => $shops->values()->toArray()
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching shops: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching shops',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // Apply filters
-        switch ($request->get('filter')) {
-            case 'verified':
-                $query->where('verified', true);
-                break;
-            case 'top-rated':
-                $query->where('average_rating', '>=', 4.5);
-                break;
-            case 'new':
-                $query->where('created_at', '>=', now()->subDays(30));
-                break;
-        }
-
-        // Apply sorting
-        switch ($request->get('sort')) {
-            case 'rating':
-                $query->orderBy('average_rating', 'desc');
-                break;
-            case 'products':
-                $query->orderBy('total_products', 'desc');
-                break;
-            case 'reviews':
-                $query->orderBy('total_reviews', 'desc');
-                break;
-            case 'newest':
-                $query->orderBy('created_at', 'desc');
-                break;
-            default:
-                $query->orderBy('average_rating', 'desc');
-        }
-
-        $shops = $query->get()->map(function($shop) {
-            return [
-                'id' => $shop->id,
-                'owner_id' => $shop->owner_id,
-                'shop_name' => $shop->shop_name,
-                'description' => $shop->description,
-                'logo_path' => $shop->logo_path ? \Storage::url($shop->logo_path) : null,
-                'banner_path' => $shop->banner_path ? \Storage::url($shop->banner_path) : null,
-                'average_rating' => $shop->average_rating ?? 5.0,
-                'total_reviews' => $shop->total_reviews ?? 0,
-                'total_products' => $shop->total_products ?? 0,
-                'total_sales' => $shop->total_sales ?? 0,
-                'verified' => $shop->verified ?? false,
-                'created_at' => $shop->created_at,
-                'owner' => $shop->owner
-            };
-        });
-
-        return response()->json([
-            'success' => true,
-            'data' => $shops
-        ]);
     }
 }
