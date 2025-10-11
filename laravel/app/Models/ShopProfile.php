@@ -18,7 +18,12 @@ class ShopProfile extends Model
         'theme',
         'policies',
         'social',
-        'settings'
+        'settings',
+        'average_rating',
+        'total_reviews',
+        'total_products',
+        'total_sales',
+        'verified'
     ];
 
     protected $casts = [
