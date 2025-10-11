@@ -103,6 +103,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/buyer/orders', [\App\Http\Controllers\Api\BuyerOrderController::class, 'index']);
     Route::get('/buyer/orders/{id}', [\App\Http\Controllers\Api\BuyerOrderController::class, 'show']);
     Route::patch('/buyer/orders/{id}/cancel', [\App\Http\Controllers\Api\BuyerOrderController::class, 'cancel']);
+    Route::get('/buyer/orders/{id}/invoice', [\App\Http\Controllers\Api\InvoiceController::class, 'generateInvoice']);
     Route::get('/buyer/orders/stats', [\App\Http\Controllers\Api\BuyerOrderController::class, 'getStats']);
     Route::get('/buyer/wishlist', [\App\Http\Controllers\Api\WishlistController::class, 'index']);
     Route::post('/buyer/wishlist', [\App\Http\Controllers\Api\WishlistController::class, 'store']);
