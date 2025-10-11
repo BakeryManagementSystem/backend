@@ -8,15 +8,24 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('ingredient_batches', function (Blueprint $table) {
-            $table->decimal('total_cost', 12, 2)->default(0)->after('notes');
-        });
+        // Only run if the ingredient_batches table exists
+        if (Schema::hasTable('ingredient_batches')) {
+            Schema::table('ingredient_batches', function (Blueprint $table) {
+                if (!Schema::hasColumn('ingredient_batches', 'total_cost')) {
+                    $table->decimal('total_cost', 12, 2)->default(0)->after('notes');
+                }
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('ingredient_batches', function (Blueprint $table) {
-            $table->dropColumn('total_cost');
-        });
+        if (Schema::hasTable('ingredient_batches')) {
+            Schema::table('ingredient_batches', function (Blueprint $table) {
+                if (Schema::hasColumn('ingredient_batches', 'total_cost')) {
+                    $table->dropColumn('total_cost');
+                }
+            });
+        }
     }
 };

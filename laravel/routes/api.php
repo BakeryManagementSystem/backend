@@ -59,6 +59,10 @@ Route::get('/ai/context', [AIController::class, 'getContextData']);
 Route::get('/ai/products', [AIController::class, 'getProducts']);
 Route::get('/ai/categories', [AIController::class, 'getCategories']);
 
+// Coupons (Public - for buyers)
+Route::get('/coupons', [\App\Http\Controllers\Api\CouponController::class, 'getPublicCoupons']);
+Route::post('/coupons/validate', [\App\Http\Controllers\Api\CouponController::class, 'validateCoupon']);
+
 // Notifications route (for frontend)
 Route::middleware('auth:sanctum')->get('/notifications', function () {
     return response()->json([
@@ -153,6 +157,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/owner/ingredient-batches', [IngredientBatchController::class, 'index']);
     Route::post('/owner/ingredient-batches', [IngredientBatchController::class, 'store']);
     Route::delete('/owner/ingredient-batches/{batch}', [IngredientBatchController::class, 'destroy']);
+
+    // Inventory Transactions
+    Route::get('/inventory-transactions', [\App\Http\Controllers\Api\InventoryTransactionController::class, 'index']);
+    Route::post('/inventory-transactions', [\App\Http\Controllers\Api\InventoryTransactionController::class, 'store']);
+    Route::get('/inventory-transactions/stats', [\App\Http\Controllers\Api\InventoryTransactionController::class, 'getStats']);
+
+    // Expenses
+    Route::get('/expenses', [\App\Http\Controllers\Api\ExpenseController::class, 'index']);
+    Route::post('/expenses', [\App\Http\Controllers\Api\ExpenseController::class, 'store']);
+    Route::get('/expenses/{id}', [\App\Http\Controllers\Api\ExpenseController::class, 'show']);
+    Route::put('/expenses/{id}', [\App\Http\Controllers\Api\ExpenseController::class, 'update']);
+    Route::delete('/expenses/{id}', [\App\Http\Controllers\Api\ExpenseController::class, 'destroy']);
+    Route::get('/expenses/stats', [\App\Http\Controllers\Api\ExpenseController::class, 'getStats']);
+
+    // Coupons (Seller Management)
+    Route::get('/seller/coupons', [\App\Http\Controllers\Api\CouponController::class, 'index']);
+    Route::post('/seller/coupons', [\App\Http\Controllers\Api\CouponController::class, 'store']);
+    Route::put('/seller/coupons/{id}', [\App\Http\Controllers\Api\CouponController::class, 'update']);
+    Route::delete('/seller/coupons/{id}', [\App\Http\Controllers\Api\CouponController::class, 'destroy']);
 
     // Reports
     Route::get('/owner/profit/category', [ReportController::class, 'profitByCategory']);

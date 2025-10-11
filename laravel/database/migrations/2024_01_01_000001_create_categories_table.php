@@ -15,13 +15,12 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->text('description')->nullable();
-            $table->string('image')->nullable();
+            $table->unsignedBigInteger('parent_id')->nullable();
             $table->boolean('status')->default(true);
-            $table->integer('sort_order')->default(0);
             $table->timestamps();
 
+            $table->foreign('parent_id')->references('id')->on('categories')->onDelete('set null');
             $table->index('status');
-            $table->index('sort_order');
         });
     }
 

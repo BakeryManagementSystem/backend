@@ -19,10 +19,8 @@ return new class extends Migration
         // Also handle null values
         DB::table('orders')->whereNull('status')->update(['status' => 'pending']);
 
-        // Now safely modify the column to ENUM
-        Schema::table('orders', function (Blueprint $table) {
-            $table->enum('status', ['pending', 'processing', 'completed', 'cancelled', 'shipped', 'delivered'])->default('pending')->change();
-        });
+        // Use raw SQL to modify the column to ENUM (Doctrine DBAL doesn't support ENUM changes)
+        DB::statement("ALTER TABLE `orders` MODIFY COLUMN `status` ENUM('pending', 'processing', 'completed', 'cancelled', 'shipped', 'delivered') NOT NULL DEFAULT 'pending'");
     }
 
     /**
@@ -30,9 +28,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('orders', function (Blueprint $table) {
-            // Revert back to string column
-            $table->string('status')->default('pending')->change();
-        });
+        // Revert back to string column using raw SQL
+        DB::statement("ALTER TABLE `orders` MODIFY COLUMN `status` VARCHAR(255) NOT NULL DEFAULT 'pending'");
     }
 };

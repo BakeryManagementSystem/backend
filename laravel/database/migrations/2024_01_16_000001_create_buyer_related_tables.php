@@ -29,7 +29,7 @@ return new class extends Migration
             $table->boolean('is_verified_purchase')->default(false);
             $table->timestamps();
 
-            $table->unique(['user_id', 'product_id']);
+            $table->unique(['user_id', 'product_id', 'order_id']);
         });
 
         // User addresses table

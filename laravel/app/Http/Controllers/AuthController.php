@@ -13,10 +13,13 @@ class AuthController extends Controller
     public function register(Request $req)
     {
         $data = $req->validate([
-            'name'      => ['required','string','max:255'],
-            'email'     => ['required','email','max:255','unique:users,email'],
-            'password'  => ['required','string','min:8'],
-            'user_type' => ['required','string','in:buyer,seller,owner'] // adjust as needed
+            'name'          => ['required','string','max:255'],
+            'email'         => ['required','email','max:255','unique:users,email'],
+            'password'      => ['required','string','min:8'],
+            'user_type'     => ['required','string','in:buyer,seller,owner'],
+            'phone'         => ['nullable','string','max:20'],
+            'date_of_birth' => ['nullable','date'],
+            'shop_name'     => ['nullable','string','max:255']
         ]);
 
         $user = new User;
@@ -24,6 +27,9 @@ class AuthController extends Controller
         $user->email = $data['email'];
         $user->password = Hash::make($data['password']);
         $user->user_type = $data['user_type'];
+        $user->phone = $data['phone'] ?? null;
+        $user->date_of_birth = $data['date_of_birth'] ?? null;
+        $user->shop_name = $data['shop_name'] ?? null;
         $user->save();
 
         UserProfile::firstOrCreate(
@@ -31,7 +37,14 @@ class AuthController extends Controller
             ['name' => $user->name, 'email' => $user->email]
         );
 
-        return response()->json(['message' => 'User registered successfully'], 201);
+        // Create token for auto-login after registration
+        $token = $user->createToken('api-token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'User registered successfully',
+            'user' => $user,
+            'token' => $token
+        ], 201);
     }
 
 

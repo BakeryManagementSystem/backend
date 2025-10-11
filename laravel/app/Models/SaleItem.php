@@ -5,37 +5,34 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class CartItem extends Model
+class SaleItem extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'sale_id',
         'product_id',
         'quantity',
         'unit_price',
+        'line_total',
+        'discount_amount',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
         'unit_price' => 'decimal:2',
+        'line_total' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
     ];
 
-    public function user()
+    public function sale()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Sale::class);
     }
 
     public function product()
     {
         return $this->belongsTo(Product::class);
     }
-
-    /**
-     * Get the subtotal for this cart item.
-     */
-    public function getSubtotalAttribute()
-    {
-        return $this->quantity * $this->unit_price;
-    }
 }
+

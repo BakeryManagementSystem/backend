@@ -5,22 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Schema;
 
 class Product extends Model
 {
     use HasFactory;
 
     protected $table = 'products';
-
-    // Dynamically check if timestamp columns exist
-    public function __construct(array $attributes = [])
-    {
-        parent::__construct($attributes);
-
-        // Only enable timestamps if the columns exist in the database
-        $this->timestamps = Schema::hasColumns('products', ['created_at', 'updated_at']);
-    }
 
     protected $fillable = [
         'owner_id',
@@ -37,6 +27,8 @@ class Product extends Model
         'ingredients',
         'allergens',
         'status',
+        'rating',
+        'rating_count',
         'is_featured',
         'meta_title',
         'meta_description',
@@ -47,9 +39,11 @@ class Product extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'discount_price' => 'decimal:2',
+        'rating' => 'decimal:2',
         'weight' => 'decimal:2',
         'stock_quantity' => 'integer',
         'category_id' => 'integer',
+        'rating_count' => 'integer',
         'is_featured' => 'boolean',
         'ingredients' => 'array',
         'allergens' => 'array',
@@ -95,6 +89,11 @@ class Product extends Model
         return $this->belongsTo(User::class, 'owner_id');
     }
 
+    public function category()
+    {
+        return $this->belongsTo(Category::class, 'category_id');
+    }
+
     public function cartItems()
     {
         return $this->hasMany(CartItem::class);
@@ -105,7 +104,17 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    public function wishlistItems()
+    public function reviews()
+    {
+        return $this->hasMany(ProductReview::class);
+    }
+
+    public function productIngredients()
+    {
+        return $this->hasMany(ProductIngredient::class);
+    }
+
+    public function wishlists()
     {
         return $this->hasMany(Wishlist::class);
     }

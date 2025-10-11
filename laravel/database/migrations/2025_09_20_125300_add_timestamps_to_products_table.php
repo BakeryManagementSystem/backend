@@ -12,7 +12,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            // Add timestamp columns if they don't exist
             if (!Schema::hasColumn('products', 'created_at')) {
                 $table->timestamp('created_at')->nullable();
             }
@@ -28,7 +27,18 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->dropColumn(['created_at', 'updated_at']);
+            $columns_to_drop = [];
+
+            if (Schema::hasColumn('products', 'created_at')) {
+                $columns_to_drop[] = 'created_at';
+            }
+            if (Schema::hasColumn('products', 'updated_at')) {
+                $columns_to_drop[] = 'updated_at';
+            }
+
+            if (!empty($columns_to_drop)) {
+                $table->dropColumn($columns_to_drop);
+            }
         });
     }
 };

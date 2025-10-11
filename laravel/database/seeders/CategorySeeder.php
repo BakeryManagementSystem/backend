@@ -16,45 +16,38 @@ class CategorySeeder extends Seeder
         $categories = [
             [
                 'id' => 1,
-                'name' => 'Bread & Rolls',
-                'description' => 'Fresh baked breads, rolls, and artisan loaves',
+                'name' => 'Breads',
+                'description' => 'Fresh baked breads',
+                'parent_id' => null,
                 'status' => true,
-                'sort_order' => 1
             ],
             [
                 'id' => 2,
                 'name' => 'Pastries',
-                'description' => 'Delicious pastries, croissants, and breakfast items',
+                'description' => 'Sweet and savory pastries',
+                'parent_id' => null,
                 'status' => true,
-                'sort_order' => 2
             ],
             [
                 'id' => 3,
                 'name' => 'Cakes',
-                'description' => 'Custom and ready-made cakes for all occasions',
+                'description' => 'Custom and ready-made cakes',
+                'parent_id' => null,
                 'status' => true,
-                'sort_order' => 3
             ],
             [
                 'id' => 4,
                 'name' => 'Cookies',
-                'description' => 'Homemade cookies and biscuits',
+                'description' => 'Freshly baked cookies',
+                'parent_id' => null,
                 'status' => true,
-                'sort_order' => 4
             ],
             [
                 'id' => 5,
-                'name' => 'Muffins & Cupcakes',
-                'description' => 'Fresh muffins and decorated cupcakes',
+                'name' => 'Desserts',
+                'description' => 'Various desserts and sweets',
+                'parent_id' => null,
                 'status' => true,
-                'sort_order' => 5
-            ],
-            [
-                'id' => 6,
-                'name' => 'Specialty & Dietary',
-                'description' => 'Gluten-free, vegan, and other specialty items',
-                'status' => true,
-                'sort_order' => 6
             ]
         ];
 
