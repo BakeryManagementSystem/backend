@@ -83,15 +83,46 @@ class SellerProductController extends Controller
             'description' => 'required|string',
             'price' => 'required|numeric|min:0',
             'discount_price' => 'nullable|numeric|min:0',
-            'category' => 'required|string',
-            'stock_quantity' => 'required|integer|min:0',
+            'category_id' => 'required|integer|exists:categories,id',
+            'stock_quantity' => 'nullable|integer|min:0',
             'sku' => 'nullable|string|unique:products,sku',
             'weight' => 'nullable|numeric|min:0',
+            'dimensions' => 'nullable|string|max:255',
+            'ingredients' => 'nullable|string',
+            'allergens' => 'nullable|string',
             'status' => 'required|in:active,inactive,draft',
-            'is_featured' => 'boolean',
-            'image_path' => 'nullable|string',
-            'images' => 'nullable|array'
+            'is_featured' => 'nullable|boolean',
+            'meta_title' => 'nullable|string|max:255',
+            'meta_description' => 'nullable|string',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'image_urls' => 'nullable|array',
+            'image_urls.*' => 'nullable|url',
+            'selected_ingredients' => 'nullable|string',
+            'ingredient_cost' => 'nullable|numeric|min:0'
         ]);
+
+        // Handle image uploads
+        $imagePaths = [];
+        $imageUrls = [];
+
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $path = $image->store('products', 'public');
+                $imagePaths[] = $path;
+            }
+        }
+
+        // Handle image URLs
+        if ($request->has('image_urls')) {
+            $imageUrls = is_array($request->image_urls) ? $request->image_urls : json_decode($request->image_urls, true);
+        }
+
+        // Combine all images
+        $allImages = array_merge($imagePaths, $imageUrls ?? []);
+        $primaryImage = !empty($allImages) ? $allImages[0] : null;
+
+        // Get category name from category_id
+        $category = \App\Models\Category::find($request->category_id);
 
         $product = Product::create([
             'owner_id' => Auth::id(),
@@ -99,19 +130,48 @@ class SellerProductController extends Controller
             'description' => $request->description,
             'price' => $request->price,
             'discount_price' => $request->discount_price,
-            'category' => $request->category,
-            'stock_quantity' => $request->stock_quantity,
-            'sku' => $request->sku ?? 'SKU' . time(),
+            'category' => $category ? $category->name : 'Uncategorized',
+            'category_id' => $request->category_id,
+            'stock_quantity' => $request->stock_quantity ?? 0,
+            'sku' => $request->sku ?? 'SKU-' . time() . '-' . rand(1000, 9999),
             'weight' => $request->weight,
+            'dimensions' => $request->dimensions,
+            'ingredients' => $request->ingredients,
+            'allergens' => $request->allergens,
             'status' => $request->status,
             'is_featured' => $request->is_featured ?? false,
-            'image_path' => $request->image_path,
-            'images' => $request->images
+            'meta_title' => $request->meta_title,
+            'meta_description' => $request->meta_description,
+            'image_path' => $primaryImage,
+            'images' => json_encode($allImages)
         ]);
 
+        // Store selected ingredients if provided
+        if ($request->has('selected_ingredients')) {
+            $selectedIngredients = json_decode($request->selected_ingredients, true);
+            // You can store this in a product_ingredients pivot table if needed
+        }
+
         return response()->json([
+            'success' => true,
             'message' => 'Product created successfully',
-            'product' => $product
+            'data' => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'description' => $product->description,
+                'price' => (float) $product->price,
+                'discount_price' => (float) ($product->discount_price ?? 0),
+                'category' => $product->category,
+                'category_id' => $product->category_id,
+                'stock_quantity' => $product->stock_quantity,
+                'sku' => $product->sku,
+                'status' => $product->status,
+                'is_featured' => $product->is_featured,
+                'image_url' => $product->image_url,
+                'image_urls' => $product->image_urls,
+                'created_at' => $product->created_at ? $product->created_at->format('Y-m-d H:i:s') : null,
+                'updated_at' => $product->updated_at ? $product->updated_at->format('Y-m-d H:i:s') : null
+            ]
         ], 201);
     }
 
@@ -158,22 +218,90 @@ class SellerProductController extends Controller
             'description' => 'required|string',
             'price' => 'required|numeric|min:0',
             'discount_price' => 'nullable|numeric|min:0',
-            'category' => 'required|string',
-            'stock_quantity' => 'required|integer|min:0',
+            'category_id' => 'required|integer|exists:categories,id',
+            'stock_quantity' => 'nullable|integer|min:0',
             'sku' => 'nullable|string|unique:products,sku,' . $product->id,
             'weight' => 'nullable|numeric|min:0',
+            'dimensions' => 'nullable|string|max:255',
+            'ingredients' => 'nullable|string',
+            'allergens' => 'nullable|string',
             'status' => 'required|in:active,inactive,draft',
-            'is_featured' => 'boolean',
-            'image_path' => 'nullable|string',
-            'images' => 'nullable|array'
+            'is_featured' => 'nullable|boolean',
+            'meta_title' => 'nullable|string|max:255',
+            'meta_description' => 'nullable|string',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'image_urls' => 'nullable|array',
+            'image_urls.*' => 'nullable|url'
         ]);
 
-        $product->update($request->all());
+        // Handle image uploads if any
+        $imagePaths = [];
+        $imageUrls = [];
+
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $path = $image->store('products', 'public');
+                $imagePaths[] = $path;
+            }
+        }
+
+        // Handle image URLs
+        if ($request->has('image_urls')) {
+            $imageUrls = is_array($request->image_urls) ? $request->image_urls : json_decode($request->image_urls, true);
+        }
+
+        // Get category name from category_id
+        $category = \App\Models\Category::find($request->category_id);
+
+        // Prepare update data
+        $updateData = [
+            'name' => $request->name,
+            'description' => $request->description,
+            'price' => $request->price,
+            'discount_price' => $request->discount_price,
+            'category' => $category ? $category->name : $product->category,
+            'category_id' => $request->category_id,
+            'stock_quantity' => $request->stock_quantity ?? $product->stock_quantity,
+            'sku' => $request->sku ?? $product->sku,
+            'weight' => $request->weight,
+            'dimensions' => $request->dimensions,
+            'ingredients' => $request->ingredients,
+            'allergens' => $request->allergens,
+            'status' => $request->status,
+            'is_featured' => $request->is_featured ?? false,
+            'meta_title' => $request->meta_title,
+            'meta_description' => $request->meta_description,
+        ];
+
+        // Update images if new ones were uploaded
+        if (!empty($imagePaths) || !empty($imageUrls)) {
+            $allImages = array_merge($imagePaths, $imageUrls ?? []);
+            $updateData['image_path'] = !empty($allImages) ? $allImages[0] : $product->image_path;
+            $updateData['images'] = json_encode($allImages);
+        }
+
+        $product->update($updateData);
 
         return response()->json([
             'success' => true,
             'message' => 'Product updated successfully',
-            'product' => $product
+            'data' => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'description' => $product->description,
+                'price' => (float) $product->price,
+                'discount_price' => (float) ($product->discount_price ?? 0),
+                'category' => $product->category,
+                'category_id' => $product->category_id,
+                'stock_quantity' => $product->stock_quantity,
+                'sku' => $product->sku,
+                'status' => $product->status,
+                'is_featured' => $product->is_featured,
+                'image_url' => $product->image_url,
+                'image_urls' => $product->image_urls,
+                'created_at' => $product->created_at ? $product->created_at->format('Y-m-d H:i:s') : null,
+                'updated_at' => $product->updated_at ? $product->updated_at->format('Y-m-d H:i:s') : null
+            ]
         ]);
     }
 

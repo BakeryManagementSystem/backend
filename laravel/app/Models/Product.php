@@ -64,10 +64,13 @@ class Product extends Model
             return null;
         }
 
-        // If it's already a URL, return as-is, otherwise prepend storage URL
-        return str_starts_with($this->image_path, 'http')
-            ? $this->image_path
-            : url(Storage::url($this->image_path));
+        // If it's already a URL, ensure it's HTTPS
+        if (str_starts_with($this->image_path, 'http')) {
+            return str_replace('http://', 'https://', $this->image_path);
+        }
+
+        // Otherwise prepend secure storage URL
+        return secure_url(Storage::url($this->image_path));
     }
 
     public function getImageUrlsAttribute(): array
@@ -77,10 +80,13 @@ class Product extends Model
         }
 
         return array_map(function($path) {
-            // If it's already a URL, return as-is, otherwise prepend storage URL
-            return str_starts_with($path, 'http')
-                ? $path
-                : url(Storage::url($path));
+            // If it's already a URL, ensure it's HTTPS
+            if (str_starts_with($path, 'http')) {
+                return str_replace('http://', 'https://', $path);
+            }
+
+            // Otherwise prepend secure storage URL
+            return secure_url(Storage::url($path));
         }, $this->images);
     }
 
