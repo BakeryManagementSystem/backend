@@ -89,6 +89,11 @@ class ShopController extends Controller
     {
         $user = $request->user();
 
+        \Log::info('Shop update request received', [
+            'user_id' => $user->id,
+            'request_data' => $request->all()
+        ]);
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'required|string|min:50|max:500',
@@ -156,6 +161,10 @@ class ShopController extends Controller
             ];
         }
 
+        \Log::info('Theme data being saved', [
+            'theme' => $shop->theme
+        ]);
+
         // Handle policies data (both nested and flat formats)
         if (isset($data['policies'])) {
             $shop->policies = $data['policies'];
@@ -192,6 +201,11 @@ class ShopController extends Controller
         }
 
         $shop->save();
+
+        \Log::info('Shop saved successfully', [
+            'shop_id' => $shop->id,
+            'theme_in_db' => $shop->fresh()->theme
+        ]);
 
         return response()->json([
             'success' => true,
