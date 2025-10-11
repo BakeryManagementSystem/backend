@@ -271,6 +271,16 @@ class ProfileController extends Controller
                         }
                     }
 
+                    // Safely get owner data
+                    $ownerData = null;
+                    if ($shop->owner) {
+                        $ownerData = [
+                            'id' => $shop->owner->id,
+                            'name' => $shop->owner->name,
+                            'email' => $shop->owner->email
+                        ];
+                    }
+
                     return [
                         'id' => $shop->id,
                         'owner_id' => $shop->owner_id,
@@ -284,18 +294,14 @@ class ProfileController extends Controller
                         'total_sales' => (int) ($shop->total_sales ?? 0),
                         'verified' => (bool) ($shop->verified ?? false),
                         'created_at' => $shop->created_at ? $shop->created_at->toDateTimeString() : null,
-                        'owner' => $shop->owner ? [
-                            'id' => $shop->owner->id,
-                            'name' => $shop->owner->name,
-                            'email' => $shop->owner->email
-                        ] : null
-                    };
+                        'owner' => $ownerData
+                    ];
                 } catch (\Exception $e) {
                     \Log::error('Error mapping shop ' . $shop->id . ': ' . $e->getMessage());
                     // Return minimal data for problematic shops
                     return [
-                        'id' => $shop->id,
-                        'owner_id' => $shop->owner_id,
+                        'id' => $shop->id ?? 0,
+                        'owner_id' => $shop->owner_id ?? 0,
                         'shop_name' => $shop->shop_name ?? 'Unnamed Shop',
                         'description' => '',
                         'logo_path' => null,
