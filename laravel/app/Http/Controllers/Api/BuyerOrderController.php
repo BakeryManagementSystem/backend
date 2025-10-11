@@ -51,7 +51,7 @@ class BuyerOrderController extends Controller
                         'product_id' => $item->product_id,
                         'product_name' => $item->product->name ?? 'Unknown Product',
                         'product_image' => $item->product->image_url ?? $item->product->image_path ?? null,
-                        'seller_name' => $item->product->owner->name ?? 'Unknown Seller',
+                        'seller_name' => $item->product->owner->shop_name ?? $item->product->owner->name ?? 'Unknown Seller',
                         'quantity' => $item->quantity,
                         'unit_price' => (float) $item->unit_price,
                         'line_total' => (float) $item->line_total
@@ -59,7 +59,7 @@ class BuyerOrderController extends Controller
                 }),
                 'items_count' => $order->orderItems->count(),
                 'sellers' => $order->orderItems->map(function($item) {
-                    return $item->product->owner->name ?? 'Unknown Seller';
+                    return $item->product->owner->shop_name ?? $item->product->owner->name ?? 'Unknown Seller';
                 })->unique()->values()
             ];
         });
@@ -99,7 +99,7 @@ class BuyerOrderController extends Controller
                     'product_name' => $item->product->name ?? 'Unknown Product',
                     'product_image' => $item->product->image_url ?? $item->product->image_path ?? null,
                     'product_description' => $item->product->description ?? '',
-                    'seller_name' => $item->product->owner->name ?? 'Unknown Seller',
+                    'seller_name' => $item->product->owner->shop_name ?? $item->product->owner->name ?? 'Unknown Seller',
                     'seller_email' => $item->product->owner->email ?? '',
                     'quantity' => $item->quantity,
                     'unit_price' => (float) $item->unit_price,
