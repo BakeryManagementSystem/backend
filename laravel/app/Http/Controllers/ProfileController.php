@@ -156,11 +156,47 @@ class ProfileController extends Controller
     {
         $shop = \App\Models\ShopProfile::firstWhere('owner_id', $owner->id);
 
+        if (!$shop) {
+            return response()->json([
+                'shop' => null,
+                'owner' => [
+                    'id' => $owner->id,
+                    'name' => $owner->name,
+                    'email' => $owner->email,
+                ],
+            ]);
+        }
+
+        // Format the shop data with proper URLs
+        $shopData = [
+            'id' => $shop->id,
+            'owner_id' => $shop->owner_id,
+            'shop_name' => $shop->shop_name,
+            'description' => $shop->description,
+            'address' => $shop->address,
+            'phone' => $shop->phone,
+            'logo_path' => $shop->logo_path ? url(\Storage::url($shop->logo_path)) : null,
+            'banner_path' => $shop->banner_path ? url(\Storage::url($shop->banner_path)) : null,
+            'facebook_url' => $shop->facebook_url,
+            'theme' => is_string($shop->theme) ? json_decode($shop->theme, true) : ($shop->theme ?? []),
+            'policies' => is_string($shop->policies) ? json_decode($shop->policies, true) : ($shop->policies ?? []),
+            'social' => is_string($shop->social) ? json_decode($shop->social, true) : ($shop->social ?? []),
+            'settings' => is_string($shop->settings) ? json_decode($shop->settings, true) : ($shop->settings ?? []),
+            'average_rating' => (float) ($shop->average_rating ?? 5.0),
+            'total_reviews' => (int) ($shop->total_reviews ?? 0),
+            'total_products' => (int) ($shop->total_products ?? 0),
+            'total_sales' => (int) ($shop->total_sales ?? 0),
+            'follower_count' => (int) ($shop->follower_count ?? 0),
+            'verified' => (bool) ($shop->verified ?? false),
+            'created_at' => $shop->created_at,
+            'updated_at' => $shop->updated_at,
+        ];
+
         return response()->json([
-            'shop'  => $shop,
+            'shop' => $shopData,
             'owner' => [
-                'id'    => $owner->id,
-                'name'  => $owner->name,
+                'id' => $owner->id,
+                'name' => $owner->name,
                 'email' => $owner->email,
             ],
         ]);
