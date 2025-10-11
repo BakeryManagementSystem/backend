@@ -100,20 +100,53 @@ class ProfileController extends Controller
     // GET /api/owner/shop  (requires Sanctum token)
    public function myShop(Request $request)
    {
-       $u = $request->user();
-       $shop = ShopProfile::firstOrCreate(
-           ['owner_id' => $u->id],
-           ['shop_name' => $u->name . "'s Shop"]
-       );
+       try {
+           $u = $request->user();
+           $shop = ShopProfile::firstOrCreate(
+               ['owner_id' => $u->id],
+               ['shop_name' => $u->name . "'s Shop"]
+           );
 
-       return response()->json([
-           'shop'  => $shop,
-           'owner' => [
-               'id'    => $u->id,
-               'name'  => $u->name,
-               'email' => $u->email,
-           ],
-       ]);
+           // Ensure JSON fields are properly formatted
+           $shopData = [
+               'id' => $shop->id,
+               'owner_id' => $shop->owner_id,
+               'shop_name' => $shop->shop_name,
+               'description' => $shop->description,
+               'address' => $shop->address,
+               'phone' => $shop->phone,
+               'logo_path' => $shop->logo_path ? url(\Storage::url($shop->logo_path)) : null,
+               'banner_path' => $shop->banner_path ? url(\Storage::url($shop->banner_path)) : null,
+               'facebook_url' => $shop->facebook_url,
+               'theme' => is_string($shop->theme) ? json_decode($shop->theme, true) : ($shop->theme ?? []),
+               'policies' => is_string($shop->policies) ? json_decode($shop->policies, true) : ($shop->policies ?? []),
+               'social' => is_string($shop->social) ? json_decode($shop->social, true) : ($shop->social ?? []),
+               'settings' => is_string($shop->settings) ? json_decode($shop->settings, true) : ($shop->settings ?? []),
+               'average_rating' => (float) ($shop->average_rating ?? 5.0),
+               'total_reviews' => (int) ($shop->total_reviews ?? 0),
+               'total_products' => (int) ($shop->total_products ?? 0),
+               'total_sales' => (int) ($shop->total_sales ?? 0),
+               'verified' => (bool) ($shop->verified ?? false),
+               'created_at' => $shop->created_at,
+               'updated_at' => $shop->updated_at,
+           ];
+
+           return response()->json([
+               'shop' => $shopData,
+               'owner' => [
+                   'id' => $u->id,
+                   'name' => $u->name,
+                   'email' => $u->email,
+               ],
+           ]);
+       } catch (\Exception $e) {
+           \Log::error('Error in myShop: ' . $e->getMessage());
+           \Log::error('Stack trace: ' . $e->getTraceAsString());
+           return response()->json([
+               'error' => 'Failed to fetch shop data',
+               'message' => config('app.debug') ? $e->getMessage() : 'An error occurred'
+           ], 500);
+       }
    }
 
 
@@ -199,7 +232,7 @@ class ProfileController extends Controller
                         'name' => $shop->owner->name,
                         'email' => $shop->owner->email
                     ] : null
-                ];
+                };
             });
 
             return response()->json([
