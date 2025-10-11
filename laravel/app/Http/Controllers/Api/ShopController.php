@@ -24,28 +24,28 @@ class ShopController extends Controller
             [
                 'shop_name' => $user->name . "'s Shop",
                 'description' => '',
-                'theme' => json_encode([
+                'theme' => [
                     'primaryColor' => '#2563eb',
                     'secondaryColor' => '#64748b',
                     'accentColor' => '#f59e0b'
-                ]),
-                'policies' => json_encode([
+                ],
+                'policies' => [
                     'shipping' => '',
                     'returns' => '',
                     'exchange' => ''
-                ]),
-                'social' => json_encode([
+                ],
+                'social' => [
                     'website' => '',
                     'facebook' => '',
                     'twitter' => '',
                     'instagram' => ''
-                ]),
-                'settings' => json_encode([
+                ],
+                'settings' => [
                     'showContactInfo' => true,
                     'showReviews' => true,
                     'allowMessages' => true,
                     'featuredProducts' => []
-                ])
+                ]
             ]
         );
 
@@ -56,23 +56,23 @@ class ShopController extends Controller
                 'description' => $shop->description ?? '',
                 'logo' => $shop->logo_path ? Storage::url($shop->logo_path) : null,
                 'banner' => $shop->banner_path ? Storage::url($shop->banner_path) : null,
-                'theme' => $shop->theme ? json_decode($shop->theme, true) : [
+                'theme' => $shop->theme ?? [
                     'primaryColor' => '#2563eb',
                     'secondaryColor' => '#64748b',
                     'accentColor' => '#f59e0b'
                 ],
-                'policies' => $shop->policies ? json_decode($shop->policies, true) : [
+                'policies' => $shop->policies ?? [
                     'shipping' => '',
                     'returns' => '',
                     'exchange' => ''
                 ],
-                'social' => $shop->social ? json_decode($shop->social, true) : [
+                'social' => $shop->social ?? [
                     'website' => '',
                     'facebook' => '',
                     'twitter' => '',
                     'instagram' => ''
                 ],
-                'settings' => $shop->settings ? json_decode($shop->settings, true) : [
+                'settings' => $shop->settings ?? [
                     'showContactInfo' => true,
                     'showReviews' => true,
                     'allowMessages' => true,
@@ -147,52 +147,48 @@ class ShopController extends Controller
 
         // Handle theme data (both nested and flat formats)
         if (isset($data['theme'])) {
-            $shop->theme = json_encode($data['theme']);
+            $shop->theme = $data['theme'];
         } else {
-            $themeData = [
+            $shop->theme = [
                 'primaryColor' => $data['primary_color'] ?? '#2563eb',
                 'secondaryColor' => $data['secondary_color'] ?? '#64748b',
                 'accentColor' => $data['accent_color'] ?? '#f59e0b'
             ];
-            $shop->theme = json_encode($themeData);
         }
 
         // Handle policies data (both nested and flat formats)
         if (isset($data['policies'])) {
-            $shop->policies = json_encode($data['policies']);
+            $shop->policies = $data['policies'];
         } else {
-            $policiesData = [
+            $shop->policies = [
                 'shipping' => $data['shipping_policy'] ?? '',
                 'returns' => $data['return_policy'] ?? '',
                 'exchange' => $data['exchange_policy'] ?? ''
             ];
-            $shop->policies = json_encode($policiesData);
         }
 
         // Handle social data (both nested and flat formats)
         if (isset($data['social'])) {
-            $shop->social = json_encode($data['social']);
+            $shop->social = $data['social'];
         } else {
-            $socialData = [
+            $shop->social = [
                 'website' => $data['website'] ?? '',
                 'facebook' => $data['facebook'] ?? '',
                 'twitter' => $data['twitter'] ?? '',
                 'instagram' => $data['instagram'] ?? ''
             ];
-            $shop->social = json_encode($socialData);
         }
 
         // Handle settings data (both nested and flat formats)
         if (isset($data['settings'])) {
-            $shop->settings = json_encode($data['settings']);
+            $shop->settings = $data['settings'];
         } else {
-            $settingsData = [
+            $shop->settings = [
                 'showContactInfo' => $data['show_contact_info'] ?? true,
                 'showReviews' => $data['show_reviews'] ?? true,
                 'allowMessages' => $data['allow_messages'] ?? true,
                 'featuredProducts' => $data['featured_products'] ?? []
             ];
-            $shop->settings = json_encode($settingsData);
         }
 
         $shop->save();
@@ -205,10 +201,10 @@ class ShopController extends Controller
                 'description' => $shop->description,
                 'logo' => $shop->logo_path ? Storage::url($shop->logo_path) : null,
                 'banner' => $shop->banner_path ? Storage::url($shop->banner_path) : null,
-                'theme' => $shop->theme ? json_decode($shop->theme, true) : null,
-                'policies' => $shop->policies ? json_decode($shop->policies, true) : null,
-                'social' => $shop->social ? json_decode($shop->social, true) : null,
-                'settings' => $shop->settings ? json_decode($shop->settings, true) : null
+                'theme' => $shop->theme,
+                'policies' => $shop->policies,
+                'social' => $shop->social,
+                'settings' => $shop->settings
             ]
         ]);
     }

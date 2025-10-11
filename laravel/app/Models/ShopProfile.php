@@ -38,30 +38,6 @@ class ShopProfile extends Model
         'verified' => 'boolean'
     ];
 
-    // Override attribute casting to handle malformed JSON gracefully
-    protected function asJson($value)
-    {
-        return json_encode($value, JSON_UNESCAPED_UNICODE);
-    }
-
-    public function getAttribute($key)
-    {
-        $value = parent::getAttribute($key);
-
-        // Handle JSON fields that might be malformed
-        if (in_array($key, ['theme', 'policies', 'social', 'settings']) && is_string($value)) {
-            try {
-                $decoded = json_decode($value, true);
-                return is_array($decoded) ? $decoded : [];
-            } catch (\Exception $e) {
-                \Log::warning("Malformed JSON in {$key} for shop profile {$this->id}");
-                return [];
-            }
-        }
-
-        return $value;
-    }
-
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');
