@@ -289,7 +289,7 @@ class ProfileController extends Controller
                             'name' => $shop->owner->name,
                             'email' => $shop->owner->email
                         ] : null
-                    ];
+                    };
                 } catch (\Exception $e) {
                     \Log::error('Error mapping shop ' . $shop->id . ': ' . $e->getMessage());
                     // Return minimal data for problematic shops
