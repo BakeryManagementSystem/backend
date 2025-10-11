@@ -137,6 +137,14 @@ class ShopController extends Controller
         $shop->shop_name = $data['name'];
         $shop->description = $data['description'];
 
+        // Handle logo and banner URLs
+        if (isset($data['logo'])) {
+            $shop->logo_path = $data['logo'];
+        }
+        if (isset($data['banner'])) {
+            $shop->banner_path = $data['banner'];
+        }
+
         // Handle theme data (both nested and flat formats)
         if (isset($data['theme'])) {
             $shop->theme = json_encode($data['theme']);
