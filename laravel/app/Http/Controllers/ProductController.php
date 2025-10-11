@@ -14,6 +14,7 @@ class ProductController extends Controller
             $perPage  = (int) $request->input('per_page', 12);
             $q        = trim((string) $request->input('q', ''));
             $category = trim((string) $request->input('category', ''));
+            $ownerId  = $request->input('owner_id');
 
             $query = Product::query()
                 // Load owner relationship with shop profile
@@ -28,6 +29,7 @@ class ProductController extends Controller
                     });
                 })
                 ->when($category !== '', fn($w) => $w->where('category', $category))
+                ->when($ownerId, fn($w) => $w->where('owner_id', $ownerId))
                 // Order by ID since timestamps are disabled
                 ->orderBy('id','desc');
 

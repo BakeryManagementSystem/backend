@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\UserProfile;
+use App\Models\ShopProfile;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -36,6 +37,37 @@ class AuthController extends Controller
             ['user_id' => $user->id],
             ['name' => $user->name, 'email' => $user->email]
         );
+
+        // Create shop profile for sellers/owners
+        if (in_array($data['user_type'], ['seller', 'owner'])) {
+            ShopProfile::create([
+                'owner_id' => $user->id,
+                'shop_name' => $data['shop_name'] ?? $user->name . "'s Shop",
+                'description' => '',
+                'theme' => json_encode([
+                    'primaryColor' => '#2563eb',
+                    'secondaryColor' => '#64748b',
+                    'accentColor' => '#f59e0b'
+                ]),
+                'policies' => json_encode([
+                    'shipping' => '',
+                    'returns' => '',
+                    'exchange' => ''
+                ]),
+                'social' => json_encode([
+                    'website' => '',
+                    'facebook' => '',
+                    'twitter' => '',
+                    'instagram' => ''
+                ]),
+                'settings' => json_encode([
+                    'showContactInfo' => true,
+                    'showReviews' => true,
+                    'allowMessages' => true,
+                    'featuredProducts' => []
+                ])
+            ]);
+        }
 
         // Create token for auto-login after registration
         $token = $user->createToken('api-token')->plainTextToken;
