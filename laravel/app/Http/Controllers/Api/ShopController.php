@@ -19,9 +19,11 @@ class ShopController extends Controller
     {
         $user = $request->user();
 
-        $shop = ShopProfile::firstOrCreate(
-            ['owner_id' => $user->id],
-            [
+        $shop = ShopProfile::where('owner_id', $user->id)->first();
+
+        if (!$shop) {
+            $shop = ShopProfile::create([
+                'owner_id' => $user->id,
                 'shop_name' => $user->name . "'s Shop",
                 'description' => '',
                 'theme' => [
@@ -46,12 +48,22 @@ class ShopController extends Controller
                     'allowMessages' => true,
                     'featuredProducts' => []
                 ]
-            ]
-        );
+            ]);
+        }
+
+        // Refresh from database to ensure we have latest data
+        $shop->refresh();
+
+        \Log::info('Getting shop data', [
+            'shop_id' => $shop->id,
+            'theme' => $shop->theme
+        ]);
 
         return response()->json([
             'success' => true,
             'data' => [
+                'id' => $shop->id,
+                'owner_id' => $shop->owner_id,
                 'name' => $shop->shop_name,
                 'description' => $shop->description ?? '',
                 'logo' => $shop->logo_path ? Storage::url($shop->logo_path) : null,
