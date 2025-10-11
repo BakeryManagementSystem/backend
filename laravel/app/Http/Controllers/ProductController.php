@@ -189,14 +189,7 @@ class ProductController extends Controller
         // Refresh the model to get the properly casted attributes
         $product->refresh();
 
-        // Transform images for response
-        $product->image_url = $product->image_path
-            ? (str_starts_with($product->image_path, 'http') ? $product->image_path : url('/storage/'.$product->image_path))
-            : null;
-
-        $product->image_urls = array_map(function($path) {
-            return str_starts_with($path, 'http') ? $path : url('/storage/' . $path);
-        }, $product->images ?? []);
+        // The model's accessors (image_url and image_urls) will handle the transformation automatically
 
         return response()->json([
             'message' => 'Product created successfully',
@@ -219,14 +212,8 @@ class ProductController extends Controller
             $product->seller_id = null;
         }
 
-        // Transform images for response
-        $product->image_url = $product->image_path
-            ? (str_starts_with($product->image_path, 'http') ? $product->image_path : url('/storage/'.$product->image_path))
-            : null;
-
-        $product->image_urls = array_map(function($path) {
-            return str_starts_with($path, 'http') ? $path : url('/storage/' . $path);
-        }, $product->images ?? []);
+        // The model's accessors (image_url and image_urls) will handle the transformation automatically
+        // No need to manually transform images here
 
         return response()->json($product);
     }
