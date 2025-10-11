@@ -181,25 +181,19 @@ class ProfileController extends Controller
             }
 
             $shops = $query->get()->map(function($shop) {
-                // Safely handle JSON fields
-                $theme = $shop->theme ?? [];
-                $policies = $shop->policies ?? [];
-                $social = $shop->social ?? [];
-                $settings = $shop->settings ?? [];
-
                 return [
                     'id' => $shop->id,
                     'owner_id' => $shop->owner_id,
                     'shop_name' => $shop->shop_name ?? 'Unnamed Shop',
                     'description' => $shop->description ?? '',
-                    'logo_path' => $shop->logo_path ? \Storage::url($shop->logo_path) : null,
-                    'banner_path' => $shop->banner_path ? \Storage::url($shop->banner_path) : null,
+                    'logo_path' => $shop->logo_path ? url(\Storage::url($shop->logo_path)) : null,
+                    'banner_path' => $shop->banner_path ? url(\Storage::url($shop->banner_path)) : null,
                     'average_rating' => (float) ($shop->average_rating ?? 5.0),
                     'total_reviews' => (int) ($shop->total_reviews ?? 0),
                     'total_products' => (int) ($shop->total_products ?? 0),
                     'total_sales' => (int) ($shop->total_sales ?? 0),
                     'verified' => (bool) ($shop->verified ?? false),
-                    'created_at' => $shop->created_at?->toISOString() ?? null,
+                    'created_at' => $shop->created_at ? $shop->created_at->toDateTimeString() : null,
                     'owner' => $shop->owner ? [
                         'id' => $shop->owner->id,
                         'name' => $shop->owner->name,
@@ -214,10 +208,11 @@ class ProfileController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::error('Error fetching shops: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
             return response()->json([
                 'success' => false,
                 'message' => 'Error fetching shops',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'An error occurred'
             ], 500);
         }
     }
