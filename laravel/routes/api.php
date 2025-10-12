@@ -118,6 +118,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/seller/orders/stats', [\App\Http\Controllers\Api\SellerOrderController::class, 'getStats']);
     Route::post('/seller/orders/{orderId}/test-ingredient-recording', [\App\Http\Controllers\Api\SellerOrderController::class, 'testIngredientRecording']);
 
+    // Seller Invoice routes
+    Route::get('/seller/orders/{orderId}/invoice', [\App\Http\Controllers\Api\InvoiceController::class, 'generateInvoice']);
+    Route::get('/seller/orders/{orderId}/invoice/preview', [\App\Http\Controllers\Api\InvoiceController::class, 'previewInvoice']);
+
     // Seller Products Management (NEW)
     Route::get('/seller/products', [\App\Http\Controllers\Api\SellerProductController::class, 'index']);
     Route::post('/seller/products', [\App\Http\Controllers\Api\SellerProductController::class, 'store']);
