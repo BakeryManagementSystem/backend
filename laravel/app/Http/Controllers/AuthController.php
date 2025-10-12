@@ -13,6 +13,9 @@ class AuthController extends Controller
 {
     public function register(Request $req)
     {
+        // Log incoming request data for debugging
+        \Log::info('Registration request data:', $req->all());
+
         $data = $req->validate([
             'name'          => ['required','string','max:255'],
             'email'         => ['required','email','max:255','unique:users,email'],
@@ -23,6 +26,9 @@ class AuthController extends Controller
             'shop_name'     => ['nullable','string','max:255']
         ]);
 
+        // Log validated data
+        \Log::info('Validated data:', $data);
+
         $user = new User;
         $user->name = $data['name'];
         $user->email = $data['email'];
@@ -32,6 +38,9 @@ class AuthController extends Controller
         $user->date_of_birth = $data['date_of_birth'] ?? null;
         $user->shop_name = $data['shop_name'] ?? null;
         $user->save();
+
+        // Log what was actually saved
+        \Log::info('User saved with date_of_birth:', ['id' => $user->id, 'date_of_birth' => $user->date_of_birth]);
 
         UserProfile::firstOrCreate(
             ['user_id' => $user->id],

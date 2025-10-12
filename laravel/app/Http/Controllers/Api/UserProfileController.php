@@ -46,7 +46,10 @@ class UserProfileController extends Controller
     {
         $user = Auth::user();
 
-        $request->validate([
+        // Log incoming request data
+        \Log::info('Profile update request data:', $request->all());
+
+        $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
             'phone' => 'nullable|string|max:20',
@@ -60,6 +63,9 @@ class UserProfileController extends Controller
             'address.country' => 'nullable|string|max:100'
         ]);
 
+        // Log validated data
+        \Log::info('Validated profile data:', $validatedData);
+
         // Update user information
         $user->update([
             'name' => $request->name,
@@ -68,6 +74,10 @@ class UserProfileController extends Controller
             'date_of_birth' => $request->date_of_birth,
             'avatar' => $request->avatar
         ]);
+
+        // Log what was saved
+        $user->refresh();
+        \Log::info('User after update:', ['id' => $user->id, 'date_of_birth' => $user->date_of_birth, 'phone' => $user->phone]);
 
         // Update or create address
         if ($request->address) {

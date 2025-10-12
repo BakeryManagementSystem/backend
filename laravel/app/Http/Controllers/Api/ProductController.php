@@ -19,9 +19,16 @@ class ProductController extends Controller
                   ->orWhere('description', 'like', '%' . $request->search . '%');
         }
 
-        // Category filter
+        // Category filter - use exact match with case-insensitive comparison
         if ($request->has('category') && $request->category) {
-            $query->where('category', 'like', '%' . $request->category . '%');
+            // Log the category filter for debugging
+            \Log::info('Category filter requested:', ['category' => $request->category]);
+
+            // Use case-insensitive exact match
+            $query->whereRaw('LOWER(category) = LOWER(?)', [$request->category]);
+
+            // Log the SQL query for debugging
+            \Log::info('Category filter SQL:', ['sql' => $query->toSql(), 'bindings' => $query->getBindings()]);
         }
 
         // Price range filter
