@@ -66,18 +66,41 @@ class UserProfileController extends Controller
         // Log validated data
         \Log::info('Validated profile data:', $validatedData);
 
-        // Update user information
-        $user->update([
+        // Prepare update data with proper date handling
+        $updateData = [
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
-            'date_of_birth' => $request->date_of_birth,
             'avatar' => $request->avatar
-        ]);
+        ];
+
+        // Handle date_of_birth with proper formatting
+        if ($request->has('date_of_birth') && !empty($request->date_of_birth)) {
+            try {
+                // Ensure date is in proper Y-m-d format
+                $date = \Carbon\Carbon::parse($request->date_of_birth)->format('Y-m-d');
+                $updateData['date_of_birth'] = $date;
+                \Log::info('Formatted date_of_birth:', ['original' => $request->date_of_birth, 'formatted' => $date]);
+            } catch (\Exception $e) {
+                \Log::error('Date parsing error:', ['date' => $request->date_of_birth, 'error' => $e->getMessage()]);
+                $updateData['date_of_birth'] = null;
+            }
+        } else {
+            $updateData['date_of_birth'] = null;
+        }
+
+        // Update user information
+        $user->update($updateData);
 
         // Log what was saved
         $user->refresh();
-        \Log::info('User after update:', ['id' => $user->id, 'date_of_birth' => $user->date_of_birth, 'phone' => $user->phone]);
+        \Log::info('User after update:', [
+            'id' => $user->id,
+            'date_of_birth' => $user->date_of_birth,
+            'phone' => $user->phone,
+            'name' => $user->name,
+            'email' => $user->email
+        ]);
 
         // Update or create address
         if ($request->address) {
