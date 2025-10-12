@@ -131,17 +131,22 @@
                     Seller: {{ $shop->name }}<br>
                 @elseif($seller && $seller->name)
                     Seller: {{ $seller->name }}<br>
+                @endif
+
                 @if($shop && $shop->phone)
                     Phone: {{ $shop->phone }}<br>
                 @elseif($seller && $seller->phone)
                     Phone: {{ $seller->phone }}<br>
                 @endif
+
                 @if($shop && $shop->address)
                     Address: {{ $shop->address }}<br>
                 @endif
+
                 @if($seller && $seller->email)
                     Email: {{ $seller->email }}<br>
                 @endif
+
                 Date: {{ now()->format('Y-m-d') }}
             </p>
         </div>
