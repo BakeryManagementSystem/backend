@@ -110,11 +110,18 @@ class ProfileController extends Controller
            // Helper function to get proper URL
            $getImageUrl = function($path) {
                if (!$path) return null;
+
                // Check if it's already a full URL (http:// or https://)
                if (filter_var($path, FILTER_VALIDATE_URL)) {
                    return $path;
                }
-               // Otherwise, it's a local storage path
+
+               // Check if it's a storage path that starts with /storage/
+               if (strpos($path, '/storage/') === 0) {
+                   return url($path);
+               }
+
+               // Otherwise, it's a local storage path without /storage/ prefix
                return url(\Storage::url($path));
            };
 
@@ -185,7 +192,11 @@ class ProfileController extends Controller
             if (filter_var($path, FILTER_VALIDATE_URL)) {
                 return $path;
             }
-            // Otherwise, it's a local storage path
+            // Check if it's a storage path that starts with /storage/
+            if (strpos($path, '/storage/') === 0) {
+                return url($path);
+            }
+            // Otherwise, it's a local storage path without /storage/ prefix
             return url(\Storage::url($path));
         };
 
@@ -282,7 +293,11 @@ class ProfileController extends Controller
                         if (filter_var($path, FILTER_VALIDATE_URL)) {
                             return $path;
                         }
-                        // Otherwise, it's a local storage path
+                        // Check if it's a storage path that starts with /storage/
+                        if (strpos($path, '/storage/') === 0) {
+                            return url($path);
+                        }
+                        // Otherwise, it's a local storage path without /storage/ prefix
                         try {
                             return url(Storage::url($path));
                         } catch (\Exception $e) {

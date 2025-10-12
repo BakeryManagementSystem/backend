@@ -64,12 +64,22 @@ class ShopController extends Controller
         // Helper function to get proper URL
         $getImageUrl = function($path) {
             if (!$path) return null;
+
             // Check if it's already a full URL (http:// or https://)
             if (filter_var($path, FILTER_VALIDATE_URL)) {
                 return $path;
             }
-            // Otherwise, it's a local storage path
-            return Storage::url($path);
+
+            // Check if it's a storage path that starts with /storage/
+            if (strpos($path, '/storage/') === 0) {
+                // Force HTTPS for production
+                $url = url($path);
+                return str_replace('http://', 'https://', $url);
+            }
+
+            // Otherwise, it's a local storage path without /storage/ prefix
+            $url = url(Storage::url($path));
+            return str_replace('http://', 'https://', $url);
         };
 
         return response()->json([
@@ -237,12 +247,22 @@ class ShopController extends Controller
         // Helper function to get proper URL
         $getImageUrl = function($path) {
             if (!$path) return null;
+
             // Check if it's already a full URL (http:// or https://)
             if (filter_var($path, FILTER_VALIDATE_URL)) {
                 return $path;
             }
-            // Otherwise, it's a local storage path
-            return Storage::url($path);
+
+            // Check if it's a storage path that starts with /storage/
+            if (strpos($path, '/storage/') === 0) {
+                // Force HTTPS for production
+                $url = url($path);
+                return str_replace('http://', 'https://', $url);
+            }
+
+            // Otherwise, it's a local storage path without /storage/ prefix
+            $url = url(Storage::url($path));
+            return str_replace('http://', 'https://', $url);
         };
 
         return response()->json([
