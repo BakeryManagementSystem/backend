@@ -197,8 +197,10 @@ class ProfileController extends Controller
             'description' => $shop->description,
             'address' => $shop->address,
             'phone' => $shop->phone,
-            'logo_path' => $getImageUrl($shop->logo_path),
-            'banner_path' => $getImageUrl($shop->banner_path),
+            'logo' => $getImageUrl($shop->logo_path),
+            'banner' => $getImageUrl($shop->banner_path),
+            'logo_path' => $getImageUrl($shop->logo_path), // Keep for backward compatibility
+            'banner_path' => $getImageUrl($shop->banner_path), // Keep for backward compatibility
             'facebook_url' => $shop->facebook_url,
             'theme' => is_string($shop->theme) ? json_decode($shop->theme, true) : ($shop->theme ?? []),
             'policies' => is_string($shop->policies) ? json_decode($shop->policies, true) : ($shop->policies ?? []),
@@ -303,8 +305,10 @@ class ProfileController extends Controller
                         'owner_id' => $shop->owner_id,
                         'shop_name' => $shop->shop_name ?? 'Unnamed Shop',
                         'description' => $shop->description ?? '',
-                        'logo_path' => $getImageUrl($shop->logo_path),
-                        'banner_path' => $getImageUrl($shop->banner_path),
+                        'logo' => $getImageUrl($shop->logo_path),
+                        'banner' => $getImageUrl($shop->banner_path),
+                        'logo_path' => $getImageUrl($shop->logo_path), // Keep for backward compatibility
+                        'banner_path' => $getImageUrl($shop->banner_path), // Keep for backward compatibility
                         'average_rating' => (float) ($shop->average_rating ?? 5.0),
                         'total_reviews' => (int) ($shop->total_reviews ?? 0),
                         'total_products' => (int) ($shop->total_products ?? 0),
@@ -321,6 +325,8 @@ class ProfileController extends Controller
                         'owner_id' => $shop->owner_id ?? 0,
                         'shop_name' => $shop->shop_name ?? 'Unnamed Shop',
                         'description' => '',
+                        'logo' => null,
+                        'banner' => null,
                         'logo_path' => null,
                         'banner_path' => null,
                         'average_rating' => 5.0,

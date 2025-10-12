@@ -56,6 +56,8 @@ class ShopController extends Controller
 
         \Log::info('Getting shop data', [
             'shop_id' => $shop->id,
+            'logo_path' => $shop->logo_path,
+            'banner_path' => $shop->banner_path,
             'theme' => $shop->theme
         ]);
 
@@ -79,6 +81,8 @@ class ShopController extends Controller
                 'description' => $shop->description ?? '',
                 'logo' => $getImageUrl($shop->logo_path),
                 'banner' => $getImageUrl($shop->banner_path),
+                'logo_path' => $getImageUrl($shop->logo_path), // Keep for backward compatibility
+                'banner_path' => $getImageUrl($shop->banner_path), // Keep for backward compatibility
                 'theme' => $shop->theme ?? [
                     'primaryColor' => '#2563eb',
                     'secondaryColor' => '#64748b',
