@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Order;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
+use App\Models\ShopProfile;
 
 class InvoiceController extends Controller
 {
@@ -36,10 +37,18 @@ class InvoiceController extends Controller
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
+            // Get seller and shop information
+            $seller = $order->orderItems->first()?->product?->owner;
+            $shopProfile = null;
+            if ($seller) {
+                $shopProfile = ShopProfile::where('owner_id', $seller->id)->first();
+            }
+
             // Prepare invoice data
             $invoiceData = [
                 'order' => $order,
-                'seller' => $order->orderItems->first()?->product?->owner,
+                'seller' => $seller,
+                'shop' => $shopProfile,
                 'buyer' => $order->buyer,
                 'items' => $order->orderItems,
                 'subtotal' => $order->orderItems->sum(function($item) {
@@ -89,9 +98,17 @@ class InvoiceController extends Controller
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
+            // Get seller and shop information
+            $seller = $order->orderItems->first()?->product?->owner;
+            $shopProfile = null;
+            if ($seller) {
+                $shopProfile = ShopProfile::where('owner_id', $seller->id)->first();
+            }
+
             $invoiceData = [
                 'order' => $order,
-                'seller' => $order->orderItems->first()?->product?->owner,
+                'seller' => $seller,
+                'shop' => $shopProfile,
                 'buyer' => $order->buyer,
                 'items' => $order->orderItems,
                 'subtotal' => $order->orderItems->sum(function($item) {

@@ -125,13 +125,18 @@
 <body>
     <div class="header">
         <div class="company-info">
-            <h1>{{ $seller->name ?? 'Bakery Management System' }}</h1>
+            <h1>{{ $shop->shop_name ?? ($seller->name ?? 'Bakery Management System') }}</h1>
             <p>
+                @if($shop && $shop->phone)
+                    Phone: {{ $shop->phone }}<br>
+                @elseif($seller && $seller->phone)
+                    Phone: {{ $seller->phone }}<br>
+                @endif
+                @if($shop && $shop->address)
+                    Address: {{ $shop->address }}<br>
+                @endif
                 @if($seller && $seller->email)
                     Email: {{ $seller->email }}<br>
-                @endif
-                @if($seller && $seller->phone)
-                    Phone: {{ $seller->phone }}<br>
                 @endif
                 Date: {{ now()->format('Y-m-d') }}
             </p>
