@@ -127,6 +127,10 @@
         <div class="company-info">
             <h1>{{ $shop->shop_name ?? ($seller->name ?? 'Bakery Management System') }}</h1>
             <p>
+                @if($shop && $shop->name)
+                    Seller: {{ $shop->name }}<br>
+                @elseif($seller && $seller->name)
+                    Seller: {{ $seller->name }}<br>
                 @if($shop && $shop->phone)
                     Phone: {{ $shop->phone }}<br>
                 @elseif($seller && $seller->phone)
